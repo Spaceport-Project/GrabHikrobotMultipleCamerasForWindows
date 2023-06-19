@@ -17,6 +17,7 @@ cd build
 cmake ..
 make -j4
 
+```
 ## Usage
 
 Run "GrabMultiHikrobotCameras"
