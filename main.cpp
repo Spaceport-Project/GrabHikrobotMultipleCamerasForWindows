@@ -6,6 +6,9 @@
 #include "MvCameraControl.h"
 #define CAMERA_NUM             2
 bool g_bExit = false;
+unsigned char*  m_pSaveImageBuf[CAMERA_NUM];
+unsigned int    m_nSaveImageBufSize[CAMERA_NUM];
+
 // Wait for the user to press Enter to stop grabbing or end the program
 void PressEnterToExit(void)
 {
@@ -75,6 +78,9 @@ static void* WorkThread(void* pUser)
     {
         return NULL;
     }
+
+    MV_FRAME_OUT stImageOut = {0};
+
     unsigned int nDataSize = stParam.nCurValue;
     while(1)
     {
@@ -83,22 +89,38 @@ static void* WorkThread(void* pUser)
             break;
         }
 
-        nRet = MV_CC_SetCommandValue(pUser, "TriggerSoftware");
-        if(MV_OK != nRet)
-        {
-            printf("failed in TriggerSoftware[%x]\n", nRet);
-        }
+        
+        nRet = MV_CC_GetImageBuffer(pUser, &stImageOut, 1000);
 
-        nRet = MV_CC_GetOneFrameTimeout(pUser, pData, nDataSize, &stImageInfo, 1000);
-        if (nRet == MV_OK)
-        {
-            printf("Cam Serial Number[%s]:GetOneFrame, Width[%d], Height[%d], nFrameNum[%d]\n", 
-                camSerialNumber, stImageInfo.nWidth, stImageInfo.nHeight, stImageInfo.nFrameNum);
-        }
-        else
-        {
-            printf("cam[%s]:Get One Frame failed![%x]\n", camSerialNumber, nRet);
-        }
+        // if (NULL == m_pSaveImageBuf[nCurCameraIndex] || stImageOut.stFrameInfo.nFrameLen > m_nSaveImageBufSize[nCurCameraIndex])
+        //     {
+        //         if (m_pSaveImageBuf[nCurCameraIndex])
+        //         {
+        //             free(m_pSaveImageBuf[nCurCameraIndex]);
+        //             m_pSaveImageBuf[nCurCameraIndex] = NULL;
+        //         }
+
+        //         m_pSaveImageBuf[nCurCameraIndex] = (unsigned char *)malloc(sizeof(unsigned char) * stImageOut.stFrameInfo.nFrameLen);
+        //         if (m_pSaveImageBuf[nCurCameraIndex] == NULL)
+        //         {
+        //             return 0;
+        //         }
+        //         m_nSaveImageBufSize[nCurCameraIndex] = stImageOut.stFrameInfo.nFrameLen;
+        //     }
+
+
+
+
+        // nRet = MV_CC_GetOneFrameTimeout(pUser, pData, nDataSize, &stImageInfo, 1000);
+        // if (nRet == MV_OK)
+        // {
+        //     printf("Cam Serial Number[%s]:GetOneFrame, Width[%d], Height[%d], nFrameNum[%d]\n", 
+        //         camSerialNumber, stImageInfo.nWidth, stImageInfo.nHeight, stImageInfo.nFrameNum);
+        // }
+        // else
+        // {
+        //     printf("cam[%s]:Get One Frame failed![%x]\n", camSerialNumber, nRet);
+        // }
     }
     return 0;
 }
@@ -197,6 +219,12 @@ int main()
             printf("MV_CC_SetTriggerSource fail! nRet [%x]\n", nRet);
             break;
 
+        }
+
+        nRet = MV_CC_SetCommandValue(handle[i], "TriggerSoftware");
+        if(MV_OK != nRet)
+        {
+            printf("failed in TriggerSoftware[%x]\n", nRet);
         }
         // Start grabbing images
         nRet = MV_CC_StartGrabbing(handle[i]);
