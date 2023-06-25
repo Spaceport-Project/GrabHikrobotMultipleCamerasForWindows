@@ -13,10 +13,10 @@ public:
     HikCamera();
     ~HikCamera();
 
-    // cGet SDK Version
+    // Get SDK Version
     static int GetSDKVersion();
 
-    // :Enumerate Device
+    // Enumerate Device
     static int EnumDevices(unsigned int nTLayerType, MV_CC_DEVICE_INFO_LIST* pstDevList);
 
     // Is the device accessible
@@ -62,7 +62,7 @@ public:
     int GetU3VAllMatchInfo(MV_MATCH_INFO_USB_DETECT* pMatchInfoUSBDetect);
 
     // Get Int type parameters, such as Width and Height, for details please refer to MvCameraNode.xlsx file under SDK installation directory
-    int GetIntValue(IN const char* strKey, OUT MVCC_INTVALUE_EX *pIntValue);
+    int GetIntValue(IN const char* strKey, OUT MVCC_INTVALUE *pIntValue);
     int SetIntValue(IN const char* strKey, IN int64_t nValue);
 
    
@@ -86,6 +86,9 @@ public:
     // Execute Command once, such as UserSetSave, for details please refer to MvCameraNode.xlsx file under SDK installation directory
     int CommandExecute(IN const char* strKey);
 
+    int TriggerExecuteSoftware();
+
+    int GetOneFrame(unsigned char * data, unsigned int dataSize, MV_FRAME_OUT_INFO_EX *frameInfo, unsigned int nMsec) ;
     // Detection network optimal package size(It only works for the GigE camera)
     int GetOptimalPacketSize(unsigned int* pOptimalPacketSize);
 

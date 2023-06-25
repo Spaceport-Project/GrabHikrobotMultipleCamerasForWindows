@@ -194,9 +194,9 @@ int HikCamera::GetU3VAllMatchInfo(MV_MATCH_INFO_USB_DETECT* pMatchInfoUSBDetect)
 }
 
 // Get Int type parameters, such as Width and Height, for details please refer to MvCameraNode.xlsx file under SDK installation directory
-int HikCamera::GetIntValue(IN const char* strKey, OUT MVCC_INTVALUE_EX *pIntValue)
+int HikCamera::GetIntValue(IN const char* strKey, OUT MVCC_INTVALUE *pIntValue)
 {
-    return MV_CC_GetIntValueEx(m_hDevHandle, strKey, pIntValue);
+    return MV_CC_GetIntValue(m_hDevHandle, strKey, pIntValue);
 }
 
 int HikCamera::SetIntValue(IN const char* strKey, IN int64_t nValue)
@@ -257,6 +257,18 @@ int HikCamera::SetStringValue(IN const char* strKey, IN const char* strValue)
 int HikCamera::CommandExecute(IN const char* strKey)
 {
     return MV_CC_SetCommandValue(m_hDevHandle, strKey);
+}
+
+// Trigger Software Execute
+int HikCamera::TriggerExecuteSoftware()
+{
+    return MV_CC_TriggerSoftwareExecute(m_hDevHandle);
+}
+
+int HikCamera::GetOneFrame(unsigned char * data, unsigned int dataSize, MV_FRAME_OUT_INFO_EX *frameInfo, unsigned int nMsec) {
+
+    return MV_CC_GetOneFrameTimeout(m_hDevHandle, data, dataSize, frameInfo, nMsec);
+
 }
 
 // Detection network optimal package size(It only works for the GigE camera)

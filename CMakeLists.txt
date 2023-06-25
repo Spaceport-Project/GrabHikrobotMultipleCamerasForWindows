@@ -37,4 +37,9 @@ add_executable(EventCallBack  EventCallBack.cpp)
 target_include_directories(EventCallBack PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(EventCallBack PRIVATE ${PROJECT_LIBS})
 
+add_executable(mainTriggerImage  mainTriggerImage.cpp)
+target_include_directories(mainTriggerImage PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(mainTriggerImage PRIVATE ${PROJECT_LIBS})
+
+
 
