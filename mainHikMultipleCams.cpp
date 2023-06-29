@@ -16,7 +16,7 @@ void ctrlC (int)
 }
 
 int main(int argc, char *argv[]) {
-    //long long int postime;
+
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     tp += std::chrono::milliseconds{3000};
   
@@ -27,7 +27,6 @@ int main(int argc, char *argv[]) {
 
     HikMultipleCameras *hikroCams = new HikMultipleCameras(buf, tp);
     signal (SIGINT, ctrlC);
-    hikroCams->EnumDevices();
     hikroCams->OpenDevices();
     hikroCams->OpenThreadsTimeStampControlReset();
     hikroCams->JoinThreadsTimeStampControlReset();
@@ -40,8 +39,6 @@ int main(int argc, char *argv[]) {
     hikroCams->CloseDevices();
 
     delete hikroCams;
-
-
 
 
 }
