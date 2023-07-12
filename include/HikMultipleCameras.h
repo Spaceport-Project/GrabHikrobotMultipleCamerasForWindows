@@ -33,6 +33,7 @@ private:
     timePoint               m_timePoint;
     bool                    m_bStartGrabbing;
     bool                    m_bStartConsuming;
+    bool                    m_entered;
     std::vector<bool>       m_triggeredEvent;
     int                     m_nTriggerMode;
     int                     m_nTriggerSource;
@@ -84,6 +85,7 @@ public:
     void JoinThreadsTimeStampControlReset();
     void TimeStampControlReset();
     void OpenThreadsTimeStampControlReset();
+    void SetAcquisitioFrameRate(float rate);
 
     int ThreadGrabWithGetImageBufferFun(int nCurCameraIndex);
     int ThreadGrabWithGetOneFrameFun(int nCurCameraIndex);
@@ -91,6 +93,7 @@ public:
     int ThreadTriggerFun();
     int ThreadTriggerWithMutexFun();
     int ThreadTimeStampControlResetFun(int nCurCameraIndex);
+
 
 private:
    

@@ -332,6 +332,12 @@ int HikCamera::SaveImage(MV_SAVE_IMAGE_PARAM_EX* pstParam)
     return MV_CC_SaveImageEx2(m_hDevHandle, pstParam);
 }
 
+int HikCamera::GIGEIssueActionCommand(MV_ACTION_CMD_INFO* pstActionCmdInfo, MV_ACTION_CMD_RESULT_LIST* pstActionCmdResults){
+
+    return  MV_GIGE_IssueActionCommand(pstActionCmdInfo, pstActionCmdResults);
+}
+
+
 // int HikCamera::SaveImageToFile(MV_SAVE_IMAGE_TO_PARAM_EX* pstSaveFileParam)
 // {
 //     return MV_CC_SaveImageToFileEx(m_hDevHandle, pstSaveFileParam);

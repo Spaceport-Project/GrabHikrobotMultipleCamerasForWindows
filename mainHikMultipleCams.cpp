@@ -35,6 +35,8 @@ int main(int argc, char *argv[]) {
     hikroCams->SetTriggerModeOnOff(MV_TRIGGER_MODE_ON);
    
     hikroCams->StartGrabbing();
+ 
+
     hikroCams->SaveImages();
     hikroCams->CloseDevices();
 

@@ -16,7 +16,7 @@ do \
     static double last = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();\
     double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); \
     ++count; \
-    if (now - last >= 2.0) \
+    if (now - last >= 1.0) \
     { \
       std::cerr << "\033[1;31m";\
       std::cerr << "Average framerate("<< _WHAT_ << "): " << double(count)/double(now - last) << " fbs." <<  "\n"; \
@@ -176,14 +176,18 @@ int main()
             }
         }
         
-        nRet = MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", false);
-        if (MV_OK != nRet)
-        {
-            printf("set AcquisitionFrameRateEnable fail! nRet [%x]\n", nRet);
-            break;
-        }
+        // nRet = MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", false);
+        // if (MV_OK != nRet)
+        // {
+        //     printf("set AcquisitionFrameRateEnable fail! nRet [%x]\n", nRet);
+        //     break;
+        // }
 
-       nRet = MV_CC_SetFloatValue(handle, "ExposureTime", 5000.0f);
+        MV_CC_SetFloatValue(handle, "ExposureTime", 5000.0f);
+        MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", true);
+        MV_CC_SetFloatValue(handle, "AcquisitionFrameRate", 100.0f); 
+        MV_CC_SetBoolValue(handle, "GevPAUSEFrameReception", true);
+
         
         // Set the trigger mode to on
         nRet = MV_CC_SetEnumValue(handle, "TriggerMode", 1);

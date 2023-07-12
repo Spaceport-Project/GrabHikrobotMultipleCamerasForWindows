@@ -36,6 +36,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer &buf, std::chrono::system_clo
     , m_bOpenDevice(false)
     , m_bStartGrabbing(false)
     , m_bStartConsuming(false)
+    , m_entered(true)
     , m_nTriggerMode(MV_TRIGGER_MODE_OFF)
    
 {
@@ -133,7 +134,23 @@ void HikMultipleCameras::DoSoftwareOnce(void)
     }
 }
 
+void HikMultipleCameras::SetAcquisitioFrameRate(float rate)
+{
+    int nRet = MV_OK;
+    for (uint i = 0; i < m_nDeviceNum; i++)
+    {
+        if (m_pcMyCamera[i])
+        {
+            
+            nRet = m_pcMyCamera[i]->SetFloatValue("AcquisitionFrameRate", rate);
+            if (nRet != MV_OK)
+            {
+                printf("Set Frame Rate fail! DevIndex[%d], nRet[%#x]\r\n", i+1, nRet);
+            }
+        }
+    }
 
+}
 // Thread Function for save images on disk for every camera
 int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
 {
@@ -209,7 +226,7 @@ int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
                 }
                 fwrite(m_pDataForSaveImage[nCurCameraIndex].get(), 1, stParam.nImageLen, fp);
                 fclose(fp);
-                printf("%d. Camera save image  succeeded,  nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImageInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+              //  printf("%d. Camera save image  succeeded,  nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImageInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
                 
             }
@@ -230,27 +247,35 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
         memset(&stImageOut, 0, sizeof(MV_FRAME_OUT));
         uint64_t oldtimeStamp = 0;
         long long int oldmicroseconds = 0;
+        uint i = 0;
         while(m_bStartGrabbing)
         {
-           
            // if (m_nTriggerMode == MV_TRIGGER_MODE_ON) m_pcMyCamera[nCurCameraIndex]->CommandExecute("TriggerSoftware");
+           // std::this_thread::sleep_until(m_timePoint);
+
+            std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
+
             int nRet = m_pcMyCamera[nCurCameraIndex]->GetImageBuffer(&stImageOut, 1000);
+
+            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
             if (nRet == MV_OK)
             {
                 
                 {
-                    // std::lock_guard<std::mutex> lk(m_consumeMutexes[nCurCameraIndex]);
-                    // std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-                    // std::chrono::microseconds ms = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
-                    // long long int microseconds = ms.count();
+                    std::lock_guard<std::mutex> lk(m_consumeMutexes[nCurCameraIndex]);
+                    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+                    std::chrono::microseconds ms = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
+                    long long int microseconds = ms.count();
 
-                    // uint64_t timeStamp = (((uint64_t) stImageOut.stFrameInfo.nDevTimeStampHigh) << 32) + stImageOut.stFrameInfo.nDevTimeStampLow;
-                    // uint64_t  timeDif = timeStamp - oldtimeStamp;
-                    // uint64_t systemTimeDiff = microseconds - oldmicroseconds;
-                    // oldtimeStamp = timeStamp; 
-                    // oldmicroseconds = microseconds;
+                    uint64_t timeStamp = (((uint64_t) stImageOut.stFrameInfo.nDevTimeStampHigh) << 32) + stImageOut.stFrameInfo.nDevTimeStampLow;
+                    uint64_t  timeDif = timeStamp - oldtimeStamp;
+                    uint64_t systemTimeDiff = microseconds - oldmicroseconds;
+                    oldtimeStamp = timeStamp; 
+                    oldmicroseconds = microseconds;
                     
-                    // printf("%d. Camera Grab image succeeded,  nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex, stImageOut.stFrameInfo.nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+                    printf("%d. Camera Grab image succeeded,  nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex, stImageOut.stFrameInfo.nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
                     if (m_pSaveImageBuf[nCurCameraIndex] == nullptr  || stImageOut.stFrameInfo.nFrameLen > m_nSaveImageBufSize[nCurCameraIndex])
                     {
@@ -285,9 +310,16 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
                 m_triggerCon.notify_one();
             
             }
-           
+            // if (i == 3 && m_nTriggerMode ==  MV_TRIGGER_MODE_ON) 
+            // {
+            //     SetTriggerModeOnOff(MV_TRIGGER_MODE_OFF);
+            //     SetAcquisitioFrameRate(15.5f);
+
+            // }
+           // m_timePoint += std::chrono::milliseconds(50);
             if (m_bExit) m_bStartGrabbing = false;
             FPS_CALC ("Image Grabbing FPS:", nCurCameraIndex);
+            i++;
         }
 
     }
@@ -308,7 +340,7 @@ int HikMultipleCameras::ThreadGrabWithGetOneFrameFun(int nCurCameraIndex)
         while(m_bStartGrabbing)
         {
            
-            
+            //std::this_thread::sleep_until(m_timePoint);
             if (m_pSaveImageBuf[nCurCameraIndex] == nullptr )
             {
                 
@@ -320,18 +352,22 @@ int HikMultipleCameras::ThreadGrabWithGetOneFrameFun(int nCurCameraIndex)
                 }
             }
             
-            
+            std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
             int nRet = m_pcMyCamera[nCurCameraIndex]->GetOneFrame(m_pSaveImageBuf[nCurCameraIndex].get(), m_params[nCurCameraIndex].nCurValue, &stImageOut, 1000);
+            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+
             if (nRet == MV_OK)
             {
                 
                 
                 {
                     std::lock_guard<std::mutex> lk(m_consumeMutexes[nCurCameraIndex]);
-                    
+                    memcpy(&(m_stImageInfo[nCurCameraIndex]), &(stImageOut), sizeof(MV_FRAME_OUT_INFO_EX)); 
+                    m_imageOk[nCurCameraIndex] = true;
                     if (m_pSaveImageBuf[nCurCameraIndex]) {
                        
-                        m_pSaveImageBuf[nCurCameraIndex].reset();
+                       // m_pSaveImageBuf[nCurCameraIndex].reset();
 
                     }
                   
@@ -350,7 +386,7 @@ int HikMultipleCameras::ThreadGrabWithGetOneFrameFun(int nCurCameraIndex)
 
             if (m_bExit) m_bStartGrabbing = false;
             FPS_CALC ("Image Grabbing FPS:", nCurCameraIndex);
-           
+            //m_timePoint += std::chrono::milliseconds(25);
         }
     }
 
@@ -451,14 +487,30 @@ void HikMultipleCameras::OpenDevices()
                 }
             }
 
-
-            m_pcMyCamera[i]->SetFloatValue("ExposureTime", 5000.0f);
+            m_pcMyCamera[i]->SetEnumValue("ExposureAuto", 0);
+            m_pcMyCamera[i]->SetFloatValue("ExposureTime", 15000.0f);
             m_pcMyCamera[i]->SetBoolValue("AcquisitionFrameRateEnable", true);
-            m_pcMyCamera[i]->SetFloatValue("AcquisitionFrameRate", 50.0f); 
+            m_pcMyCamera[i]->SetFloatValue("AcquisitionFrameRate", 10.0f); 
+            
+           // nRet = m_pcMyCamera[i]->SetFloatValue("TriggerDelay", 0.0f);
+           // if (nRet != MV_OK) printf("Cannot set trigger delay!. %d. Camera. \n ", i);
+            //m_pcMyCamera[i]->SetBoolValue("TriggerCacheEnable", true);
+           // m_pcMyCamera[i]->SetEnumValue("AcquisitionMode", MV_ACQ_MODE_CONTINUOUS);
+           // m_pcMyCamera[i]->SetIntValue("AcquisitionBurstFrameCount", 1);
+            //m_pcMyCamera[i]->SetBoolValue("FullFrameTransmission", true);
+           // m_pcMyCamera[i]->SetIntValue("GevSCPSPacketSize", 8194);
+           // m_pcMyCamera[i]->SetIntValue("GevSCPD", 10);
             m_pcMyCamera[i]->SetBoolValue("GevPAUSEFrameReception", true);
-            m_pcMyCamera[i]->SetBoolValue("GevIEEE1588", false);
-            nRet = m_pcMyCamera[i]->SetFloatValue("Gain", 20.062f);
-            if (nRet != MV_OK) printf("Cannot set gain value! %d \n ", i);
+            m_pcMyCamera[i]->SetBoolValue("ChunkModeActive", false);
+            nRet = m_pcMyCamera[i]->SetEnumValue("EventSelector", 0x9000);
+            if (nRet != MV_OK) printf("Cannot set event selector!. %d. Camera. \n ", i);
+            
+            // m_pcMyCamera[i]->SetEnumValue("ChunkSelector", 1);
+            // m_pcMyCamera[i]->SetBoolValue("ChunkEnable", true);
+           // m_pcMyCamera[i]->SetBoolValue("GevGVCPHeartbeatDisable", true);
+            m_pcMyCamera[i]->SetBoolValue("GevIEEE1588", true);
+            nRet = m_pcMyCamera[i]->SetFloatValue("Gain", 15.0f);
+            if (nRet != MV_OK) printf("Cannot set gain value!. %d. Camera. \n ", i);
         }
         
     }
@@ -491,7 +543,7 @@ int HikMultipleCameras::ThreadTimeStampControlResetFun(int nCurCameraIndex) {
         
         if ( m_mapModels[nCurCameraIndex] == std::string("MV-CA023-10GC")) 
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(4));
+            std::this_thread::sleep_for(std::chrono::milliseconds(14));
         }
         nRet = m_pcMyCamera[nCurCameraIndex]->CommandExecute("GevTimestampControlReset") ;
         std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
@@ -634,7 +686,7 @@ void HikMultipleCameras::SaveToBuffer()
 // Start grabbing
 void HikMultipleCameras::StartGrabbing()
 {
-    if (true == m_bStartGrabbing)
+    if (m_bStartGrabbing == true)
     {        
         return;
     }
@@ -663,9 +715,9 @@ void HikMultipleCameras::StartGrabbing()
             }
 
            
-            m_grabThreads.push_back (std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadGrabWithGetImageBufferFun, this, i)));
+            m_grabThreads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadGrabWithGetImageBufferFun, this, i)));
            
-            if (m_grabThreads[i]==nullptr)
+            if (m_grabThreads[i] == nullptr)
             {
                 printf("Create grab thread fail! DevIndex[%d]\r\n", i+1);
             }
@@ -674,6 +726,7 @@ void HikMultipleCameras::StartGrabbing()
 
 // Consider including the line below incase of saving in buffer.
     // m_grabThread = new std::thread(std::bind(&HikMultipleCameras::SaveToBuffer, this));
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
     m_triggerThread = std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadTriggerWithMutexFun, this));
 
 }
@@ -685,7 +738,7 @@ int HikMultipleCameras::ThreadTriggerFun()
     while(true) 
     {
         std::this_thread::sleep_until(m_timePoint);
-        bool sum=true;
+        bool sum = true;
         int i = 0;
         for (; i < m_nDeviceNum; i++)
                 sum = sum && m_triggeredEvent[i];
@@ -719,37 +772,43 @@ int HikMultipleCameras::ThreadTriggerWithMutexFun()
     {
         
         {
-           
+           // std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
+
             std::unique_lock<std::mutex> lk(m_triggerMutex);
 
             m_triggerCon.wait(lk,  [this] {
                 bool sum = true;
                 int i = 0;
                 for (; i < this->m_nDeviceNum; i++)
-                        sum = sum && this->m_triggeredEvent[i];
+                    sum = sum && this->m_triggeredEvent[i];
                 if (i == 0 ) sum = false;
                 return sum;
             });
-            
-            std::this_thread::sleep_until(m_timePoint);
 
-            if (m_nTriggerMode == MV_TRIGGER_MODE_ON) 
+            //std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            //std::cout << "Time difference = " << std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << "[ms]" << std::endl;
+           // std::this_thread::sleep_until(m_timePoint);
+
+            if (m_nTriggerMode == MV_TRIGGER_MODE_ON && m_entered) 
             {
+                m_entered = false;
                 for (uint i = 0; i < m_nDeviceNum; i++)
                 {
-                        if (m_pcMyCamera[i])
+                        if ( m_pcMyCamera[i])
                         {
-                            m_pcMyCamera[i]->CommandExecute("TriggerSoftware");
+                            //m_pcMyCamera[i]->SetFloatValue("TriggerDelay", -10000.0f);
+                            m_pcMyCamera[i]->TriggerExecuteSoftware();
                             m_triggeredEvent[i] = false;
                         }
 
                 }
                 
             }
+           
 
         }
        
-        m_timePoint += std::chrono::milliseconds(40);
+        m_timePoint += std::chrono::milliseconds(65);
         if (m_bExit) break;
        
     }
@@ -761,7 +820,7 @@ int HikMultipleCameras::ThreadTriggerWithMutexFun()
 // Stop grabbing
 void HikMultipleCameras::StopGrabbing()
 {
-    if (false == m_bOpenDevice || false == m_bStartGrabbing)
+    if ( m_bOpenDevice == false || m_bStartGrabbing == false)
     {        
         return;
     }
@@ -786,8 +845,7 @@ void HikMultipleCameras::StopGrabbing()
                 printf("Stop grabbing success! DevIndex[%d], nRet[%#x]\r\n", i+1, nRet);
             }
 
-            
-           
+          
         }
         
     }
@@ -821,7 +879,7 @@ void HikMultipleCameras::SetTriggerSoftwareMode()
 // Software trigger
 void HikMultipleCameras::SetSoftwareOnce()
 {
-    if (false == m_bStartGrabbing)
+    if ( m_bStartGrabbing == false)
     {
         printf("Please start grabbing first!\r\n");
         return;
@@ -850,4 +908,6 @@ void HikMultipleCameras::SaveImages()
 
 
 }   
+
+
 

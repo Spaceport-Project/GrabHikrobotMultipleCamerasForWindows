@@ -1,12 +1,32 @@
 #include <stdio.h>
+#include <iostream>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <chrono>
 #include "MvCameraControl.h"
 
 bool g_bExit = false;
 unsigned int g_nPayloadSize = 0;
+
+// FBS Calculator
+thread_local unsigned count = 0;
+thread_local double last = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+#define FPS_CALC(_WHAT_) \
+do \
+{ \
+    double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); \
+    ++count; \
+    if (now - last >= 1.0) \
+    { \
+      std::cerr << "\033[1;31m";\
+      std::cerr <<" Average framerate("<< _WHAT_ << "): " << double(count)/double(now - last) << " fbs." <<  "\n"; \
+      std::cerr << "\033[0m";\
+      count = 0; \
+      last = now; \
+    } \
+} while(false)
 
 // 等待用户输入enter键来结束取流或结束程序
 // wait for user to input enter to stop grabbing or end the sample program
@@ -89,6 +109,7 @@ static  void* WorkThread(void* pUser)
         {
             break;
         }
+        FPS_CALC("Image grabbing frame rate");
     }
 
     return 0;
@@ -156,6 +177,10 @@ int main()
             break;
         }
 
+        MV_CC_SetFloatValue(handle, "ExposureTime", 15000.0f);
+        MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", true);
+        MV_CC_SetFloatValue(handle, "AcquisitionFrameRate", 100.0f); 
+        MV_CC_SetBoolValue(handle, "GevPAUSEFrameReception", true);
         // ch:探测网络最佳包大小(只对GigE相机有效) | en:Detection network optimal package size(It only works for the GigE camera)
         if (stDeviceList.pDeviceInfo[nIndex]->nTLayerType == MV_GIGE_DEVICE)
         {
@@ -211,8 +236,11 @@ int main()
             break;
         }
 
+        
+
+
 		pthread_t nThreadID;
-        nRet = pthread_create(&nThreadID, NULL ,WorkThread , handle);
+        nRet = pthread_create(&nThreadID, NULL, WorkThread, handle);
         if (nRet != 0)
         {
             printf("thread create failed.ret = %d\n",nRet);

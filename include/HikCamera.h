@@ -114,6 +114,9 @@ public:
     int SaveImage(MV_SAVE_IMAGE_PARAM_EX* pstParam);
    // int SaveImageToFile(MV_SAVE_IMAGE_TO_FILE_PARAM_EX* pstSaveFileParam);
 
+    static int GIGEIssueActionCommand(MV_ACTION_CMD_INFO* pstActionCmdInfo, MV_ACTION_CMD_RESULT_LIST* pstActionCmdResults);
+
+
 private:
 
     void*               m_hDevHandle;
