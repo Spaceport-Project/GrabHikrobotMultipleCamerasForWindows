@@ -1,35 +1,35 @@
 #include <stdio.h>
-#include <iostream>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <chrono>
+#include <iostream>
+#include <thread>
 #include "MvCameraControl.h"
 
+bool g_bIsGetImage = true;
 bool g_bExit = false;
-unsigned int g_nPayloadSize = 0;
+std::chrono::system_clock::time_point m_timePoint = std::chrono::system_clock::now();
 
-// FBS Calculator
-thread_local unsigned count = 0;
-thread_local double last = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
 #define FPS_CALC(_WHAT_) \
 do \
 { \
+    static unsigned count = 0;\
+    static double last = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();\
     double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); \
     ++count; \
     if (now - last >= 1.0) \
     { \
       std::cerr << "\033[1;31m";\
-      std::cerr <<" Average framerate("<< _WHAT_ << "): " << double(count)/double(now - last) << " fbs." <<  "\n"; \
+      std::cerr << "Average framerate("<< _WHAT_ << "): " << double(count)/double(now - last) << " fbs." <<  "\n"; \
       std::cerr << "\033[0m";\
       count = 0; \
       last = now; \
     } \
-} while(false)
+}while(false)
 
-// 等待用户输入enter键来结束取流或结束程序
-// wait for user to input enter to stop grabbing or end the sample program
+// Wait for the user to press Enter to stop grabbing or end the program
 void PressEnterToExit(void)
 {
     int c;
@@ -39,7 +39,6 @@ void PressEnterToExit(void)
     g_bExit = true;
     sleep(1);
 }
-
 bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
 {
     if (NULL == pstMVDevInfo)
@@ -53,88 +52,77 @@ bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
         int nIp2 = ((pstMVDevInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
         int nIp3 = ((pstMVDevInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
         int nIp4 = (pstMVDevInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
-
-        // ch:打印当前相机ip和用户自定义名字 | en:print current ip and user defined name
+        // Print the IP address and user defined name of the current camera
+        printf("Device Model Name: %s\n", pstMVDevInfo->SpecialInfo.stGigEInfo.chModelName);
         printf("CurrentIp: %d.%d.%d.%d\n" , nIp1, nIp2, nIp3, nIp4);
         printf("UserDefinedName: %s\n\n" , pstMVDevInfo->SpecialInfo.stGigEInfo.chUserDefinedName);
     }
     else if (pstMVDevInfo->nTLayerType == MV_USB_DEVICE)
     {
-        printf("UserDefinedName: %s\n", pstMVDevInfo->SpecialInfo.stUsb3VInfo.chUserDefinedName);
-        printf("Serial Number: %s\n", pstMVDevInfo->SpecialInfo.stUsb3VInfo.chSerialNumber);
-        printf("Device Number: %d\n\n", pstMVDevInfo->SpecialInfo.stUsb3VInfo.nDeviceNumber);
+        printf("Device Model Name: %s\n", pstMVDevInfo->SpecialInfo.stUsb3VInfo.chModelName);
+        printf("UserDefinedName: %s\n\n", pstMVDevInfo->SpecialInfo.stUsb3VInfo.chUserDefinedName);
     }
     else
     {
         printf("Not support.\n");
     }
-
     return true;
 }
+void __stdcall ImageCallBackEx(unsigned char * pData, MV_FRAME_OUT_INFO_EX* pFrameInfo, void* pUser)
+{   
+    if (pFrameInfo)
+    {
+        printf("GetOneFrame, Width[%d], Height[%d], nFrameNum[%d]\n", 
+            pFrameInfo->nWidth, pFrameInfo->nHeight, pFrameInfo->nFrameNum);
+        FPS_CALC ("Image Grabbing FPS:");
+    } else {
+        printf("Frame is not captured.\n");
+    }
 
-static  void* WorkThread(void* pUser)
-{
-    int nRet = MV_OK;
-
-    MV_FRAME_OUT stOutFrame = {0};
-    memset(&stOutFrame, 0, sizeof(MV_FRAME_OUT));
     
+}
+
+static void* WorkThread(void* pUser)
+{
     while(1)
     {
-        
-        nRet = MV_CC_SetCommandValue(pUser, "TriggerSoftware");
-         if (nRet != MV_OK)
-        {
-            printf("Execute TriggerSoftware fail\n");
-        }
-        nRet = MV_CC_GetImageBuffer(pUser, &stOutFrame, 1000);
-        if (nRet == MV_OK)
-        {
-            printf("Get One Frame: Width[%d], Height[%d], nFrameNum[%d]\n",
-                stOutFrame.stFrameInfo.nWidth, stOutFrame.stFrameInfo.nHeight, stOutFrame.stFrameInfo.nFrameNum);
-        }
-        else
-        {
-            printf("No data[0x%x]\n", nRet);
-        }
-        if(NULL != stOutFrame.pBufAddr)
-        {
-            nRet = MV_CC_FreeImageBuffer(pUser, &stOutFrame);
-            if(nRet != MV_OK)
-            {
-                printf("Free Image Buffer fail! nRet [0x%x]\n", nRet);
-            }
-        }
         if(g_bExit)
         {
             break;
         }
-        FPS_CALC("Image grabbing frame rate");
-    }
+        std::this_thread::sleep_until(m_timePoint);
+       
+        int nRet = MV_CC_SetCommandValue(pUser, "TriggerSoftware");
+        if(MV_OK != nRet)
+        {
+            printf("failed in TriggerSoftware[%x]\n", nRet);
+        }
+       
+        m_timePoint += std::chrono::milliseconds(25);
 
-    return 0;
+    }
+    return NULL;
 }
 
 int main()
 {
     int nRet = MV_OK;
     void* handle = NULL;
-
+    
     do 
     {
-        // ch:枚举设备 | en:Enum device
         MV_CC_DEVICE_INFO_LIST stDeviceList;
         memset(&stDeviceList, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
+        // Enumerate devices
         nRet = MV_CC_EnumDevices(MV_GIGE_DEVICE | MV_USB_DEVICE, &stDeviceList);
         if (MV_OK != nRet)
         {
-            printf("Enum Devices fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_EnumDevices fail! nRet [%x]\n", nRet);
             break;
         }
-
         if (stDeviceList.nDeviceNum > 0)
         {
-            for (unsigned int i = 0; i < stDeviceList.nDeviceNum; i++)
+            for (int i = 0; i < stDeviceList.nDeviceNum; i++)
             {
                 printf("[device %d]:\n", i);
                 MV_CC_DEVICE_INFO* pDeviceInfo = stDeviceList.pDeviceInfo[i];
@@ -150,38 +138,32 @@ int main()
             printf("Find No Devices!\n");
             break;
         }
-
-        printf("Please Intput camera index:");
+        printf("Please Intput camera index: ");
         unsigned int nIndex = 0;
         int sc = scanf("%d", &nIndex);
-
         if (nIndex >= stDeviceList.nDeviceNum)
         {
             printf("Intput error!\n");
             break;
         }
 
-        // ch:选择设备并创建句柄 | en:Select device and create handle
+        m_timePoint += std::chrono::milliseconds{3000};
+
+        // Create a handle for the selected device
         nRet = MV_CC_CreateHandle(&handle, stDeviceList.pDeviceInfo[nIndex]);
         if (MV_OK != nRet)
         {
-            printf("Create Handle fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_CreateHandle fail! nRet [%x]\n", nRet);
             break;
         }
-
-        // ch:打开设备 | en:Open device
+        // Open the device
         nRet = MV_CC_OpenDevice(handle);
         if (MV_OK != nRet)
         {
-            printf("Open Device fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_OpenDevice fail! nRet [%x]\n", nRet);
             break;
         }
-
-        MV_CC_SetFloatValue(handle, "ExposureTime", 15000.0f);
-        MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", true);
-        MV_CC_SetFloatValue(handle, "AcquisitionFrameRate", 100.0f); 
-        MV_CC_SetBoolValue(handle, "GevPAUSEFrameReception", true);
-        // ch:探测网络最佳包大小(只对GigE相机有效) | en:Detection network optimal package size(It only works for the GigE camera)
+        // Detect the optimal packet size (it is valid for GigE cameras only)
         if (stDeviceList.pDeviceInfo[nIndex]->nTLayerType == MV_GIGE_DEVICE)
         {
             int nPacketSize = MV_CC_GetOptimalPacketSize(handle);
@@ -198,83 +180,94 @@ int main()
                 printf("Warning: Get Packet Size fail nRet [0x%x]!\n", nPacketSize);
             }
         }
-
-        // ch:设置触发模式为off | en:Set trigger mode as off
-        nRet = MV_CC_SetEnumValue(handle, "TriggerMode", MV_TRIGGER_MODE_ON);
+        
+        
+        nRet = MV_CC_SetEnumValue(handle,"ExposureAuto", 0);
         if (MV_OK != nRet)
         {
-            printf("Set Trigger Mode fail! nRet [0x%x]\n", nRet);
+            printf("Set ExposureAuto fail! nRet [0x%x]\n", nRet);
             break;
         }
-
-
+        nRet = MV_CC_SetFloatValue(handle,"ExposureTime", 15000.0f);
+        if (MV_OK != nRet)
+        {
+            printf("Set Exposure Time fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetBoolValue(handle,"AcquisitionFrameRateEnable", true);
+        if (MV_OK != nRet)
+        {
+            printf("Set AcquisitionFrameRateEnable fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetFloatValue(handle,"AcquisitionFrameRate", 100.0f); 
+        if (MV_OK != nRet)
+        {
+            printf("Set AcquisitionFrameRate fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        
+        // Set the trigger mode to on
+        nRet = MV_CC_SetEnumValue(handle, "TriggerMode", 1);
+        if (MV_OK != nRet)
+        {
+            printf("MV_CC_SetTriggerMode fail! nRet [%x]\n", nRet);
+            break;
+        }
+        // Set the trigger source
         nRet = MV_CC_SetEnumValue(handle, "TriggerSource", MV_TRIGGER_SOURCE_SOFTWARE);
         if (MV_OK != nRet)
         {
             printf("MV_CC_SetTriggerSource fail! nRet [%x]\n", nRet);
             break;
-
         }
 
+   
 
-        // ch:获取数据包大小 | en:Get payload size
-        MVCC_INTVALUE stParam;
-        memset(&stParam, 0, sizeof(MVCC_INTVALUE));
-        nRet = MV_CC_GetIntValue(handle, "PayloadSize", &stParam);
+        // Register the image callback function
+        nRet = MV_CC_RegisterImageCallBackEx(handle, ImageCallBackEx, handle);
         if (MV_OK != nRet)
         {
-            printf("Get PayloadSize fail! nRet [0x%x]\n", nRet);
-            break;
+            printf("MV_CC_RegisterImageCallBackEx fail! nRet [%x]\n", nRet);
+            break; 
         }
-        g_nPayloadSize = stParam.nCurValue;
-
-        // ch:开始取流 | en:Start grab image
+        // Start grabbing images
         nRet = MV_CC_StartGrabbing(handle);
         if (MV_OK != nRet)
         {
-            printf("Start Grabbing fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_StartGrabbing fail! nRet [%x]\n", nRet);
             break;
         }
-
-        
-
-
-		pthread_t nThreadID;
-        nRet = pthread_create(&nThreadID, NULL, WorkThread, handle);
+        pthread_t nThreadID;
+        nRet = pthread_create(&nThreadID, NULL ,WorkThread , handle);
         if (nRet != 0)
         {
             printf("thread create failed.ret = %d\n",nRet);
             break;
         }
-
-        PressEnterToExit();
-
-        // ch:停止取流 | en:Stop grab image
+        PressEnterToExit(); 
+        // Stop grabbing images
         nRet = MV_CC_StopGrabbing(handle);
         if (MV_OK != nRet)
         {
-            printf("Stop Grabbing fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_StopGrabbing fail! nRet [%x]\n", nRet);
             break;
         }
-
-        // ch:关闭设备 | Close device
+        // Shut down the device
         nRet = MV_CC_CloseDevice(handle);
         if (MV_OK != nRet)
         {
-            printf("ClosDevice fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_CloseDevice fail! nRet [%x]\n", nRet);
             break;
         }
-
-        // ch:销毁句柄 | Destroy handle
+        // Destroy the handle
         nRet = MV_CC_DestroyHandle(handle);
         if (MV_OK != nRet)
         {
-            printf("Destroy Handle fail! nRet [0x%x]\n", nRet);
+            printf("MV_CC_DestroyHandle fail! nRet [%x]\n", nRet);
             break;
         }
     } while (0);
-    
-
     if (nRet != MV_OK)
     {
         if (handle != NULL)
@@ -283,8 +276,6 @@ int main()
             handle = NULL;
         }
     }
-
-    printf("exit.\n");
-
+    printf("exit\n");
     return 0;
 }

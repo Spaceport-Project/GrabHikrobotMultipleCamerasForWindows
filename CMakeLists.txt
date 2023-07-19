@@ -2,20 +2,27 @@ cmake_minimum_required(VERSION 3.5)
 
 project(GrabMultiHikrobotCameras VERSION 0.1 LANGUAGES C CXX)
 
+if (CMAKE_BUILD_TYPE)
+    unset(CMAKE_BUILD_TYPE CACHE)
+endif()
+set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
+message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_SOURCES
-        # main.cpp  
-        mainHikMultipleCams.cpp
+        mainGrabMultiHikCams.cpp
         src/HikCamera.cpp 
         src/HikMultipleCameras.cpp 
         src/ImageBuffer.cpp
         
        
 )
+# Boost 
+find_package(Boost REQUIRED)
 
 # Hikrobot Camera
 link_directories(/opt/MVS/lib/64)
@@ -25,16 +32,30 @@ SET(PROJECT_SOURCES ${PROJECT_SOURCES}
 )
 SET(PROJECT_LIBS  MvCameraControl)
 
-add_executable(GrabMultiHikrobotCameras  ${PROJECT_SOURCES})
-target_include_directories(GrabMultiHikrobotCameras PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
-target_link_libraries(GrabMultiHikrobotCameras PRIVATE ${PROJECT_LIBS} )
+set(GrabMultiHikCams GrabMultiHikCams_${CMAKE_BUILD_TYPE})
+add_executable(${GrabMultiHikCams}  ${PROJECT_SOURCES})
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_definitions(${GrabMultiHikCams}  PRIVATE DEBUG)
+endif()
+target_include_directories(${GrabMultiHikCams}  PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${Boost_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(${GrabMultiHikCams}  PRIVATE ${PROJECT_LIBS} )
 
 add_executable(GetImageBuffer  mainGetImageBuffer.cpp)
 target_include_directories(GetImageBuffer PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(GetImageBuffer PRIVATE ${PROJECT_LIBS})
 
-add_executable(EventCallBack  EventCallBack.cpp)
-target_include_directories(EventCallBack PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
-target_link_libraries(EventCallBack PRIVATE ${PROJECT_LIBS})
+add_executable(SoftTrigger  mainSoftTrigger.cpp)
+target_include_directories(SoftTrigger PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(SoftTrigger PRIVATE ${PROJECT_LIBS})
 
+add_executable(SoftTriggerNoFlag  mainSoftTriggerNoFlag.cpp)
+target_include_directories(SoftTriggerNoFlag PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(SoftTriggerNoFlag PRIVATE ${PROJECT_LIBS})
 
+add_executable(TriggerWithPTP  mainTriggerWithPTP.cpp)
+target_include_directories(TriggerWithPTP PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(TriggerWithPTP PRIVATE ${PROJECT_LIBS})
+
+add_executable(TriggerWithPTP2  mainTriggerWithPTP2.cpp)
+target_include_directories(TriggerWithPTP2 PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(TriggerWithPTP2 PRIVATE ${PROJECT_LIBS})

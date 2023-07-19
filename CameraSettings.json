@@ -1,0 +1,14 @@
+{
+    "TriggerSource" : "Action1",
+    "TriggerTimeInterval": 63, 
+    "Height" : 1200,
+    "Width" : 1920,
+    "ExposureAuto" : 0,
+    "ExposureTime" : 15000.0,
+    "AcquisitionFrameRateEnable" : true,
+    "AcquisitionFrameRate" : 50.0,
+    "GevPAUSEFrameReception" : true,
+    "GevIEEE1588" : true,
+    "Gain" : 15.0
+
+}
