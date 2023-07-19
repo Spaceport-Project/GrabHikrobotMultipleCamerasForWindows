@@ -3,10 +3,12 @@
 #pragma once
 #include <stdio.h>
 #include <thread>
+#include <condition_variable>
 #include <memory>
 #include <map>
 #include "HikCamera.h"
-#include "ImageBuffer.h"
+
+//#include "ImageBuffer.h"
 
 
 
@@ -24,45 +26,48 @@ public:
     using hikCamVector = std::vector<std::unique_ptr<HikCamera>>;
     static bool m_bExit;
 
-	HikMultipleCameras(ImageBuffer &buf, std::chrono::system_clock::time_point postime);	      
+	HikMultipleCameras(std::chrono::system_clock::time_point timePoint);	      
    
 private:
     MV_CC_DEVICE_INFO_LIST  m_stDevList;
+    MV_ACTION_CMD_INFO      m_actionCMDInfo;
+    MV_ACTION_CMD_RESULT_LIST m_actionCMDResList;
     uint                    m_nDeviceNum;
+    uint                    m_nDeviceKey ;
+    uint                    n_nGroupKey ;
+    uint                    m_nGroupMask;
+    std::string             m_sTriggerSource;
     bool                    m_bOpenDevice;
-    timePoint               m_timePoint;
     bool                    m_bStartGrabbing;
     bool                    m_bStartConsuming;
     bool                    m_entered;
-    std::vector<bool>       m_triggeredEvent;
+    std::chrono::system_clock::time_point m_timePoint;
     int                     m_nTriggerMode;
     int                     m_nTriggerSource;
-    std::vector<bool>       m_imageOk;
-    threadVector            m_grabThreads;
-    threadVector            m_consumeThreads;
-    thread                  m_triggerThread;
-    threadVector            m_openDevicesThread;
-    threadVector            m_resetTimestampThreads;
+    int                     m_nTriggerTimeInterval;
+    std::vector<bool>       m_bImagesOk;
+    threadVector            m_tGrabThreads;
+    threadVector            m_tConsumeThreads;
+    thread                  m_tTriggerThread;
+    threadVector            m_tOpenDevicesThread;
+    threadVector            m_tResetTimestampThreads;
 
 
-    byteArrayVector         m_pSaveImageBuf;
-    byteArrayVector         m_pDataForSaveImage;
-    std::vector<uint>       m_nSaveImageBufSize;
-    frameVector             m_stImageInfo;
+    byteArrayVector         m_pSaveImagesBuf;
+    byteArrayVector         m_pDataForSaveImages;
+    std::vector<uint>       m_nSaveImagesBufSize;
+    frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
-    ImageBuffer             &m_buf;
-   // byteArrayVector       m_images;
-    std::mutex              m_grabMutex;
-    std::mutex              m_ioMutex;
-    std::mutex              m_triggerMutex;
-    std::vector<std::mutex> m_consumeMutexes;
-    condVector              m_dataReadyCon;
-    std::condition_variable m_triggerCon;
-
+    //ImageBuffer             &m_buf;
+    std::mutex              m_mGrabMutex;
+    std::vector<std::mutex> m_mConsumeMutexes;
+    condVector              m_cDataReadyCon;
+   
     int                     m_nZoomInIndex;  
 
     std::map<int, std::string> m_mapSerials; 
-    std::map<int, std::string> m_mapModels;               
+    std::map<int, std::string> m_mapModels; 
+                  
 
 public:
     hikCamVector             m_pcMyCamera;          
@@ -72,33 +77,31 @@ public:
     
     void EnumDevices();
     void OpenDevices();
-    void StartGrabbing();
+    int StartGrabbing();
     void CloseDevices();
-    void StopGrabbing();
-    void SetHeightWidth(int height, int width);
-    void SetTriggerModeOnOff(int triggerMode);
-    void SetTriggerSoftwareMode();
-    void SetSoftwareOnce();
-    void SaveImages();
+    int StopGrabbing();
+    int SetTriggerModeOnOff(int triggerMode);
+    int ConfigureCameraSettings();
+    
+    int SaveImages();
     void SaveToBuffer();
     void JoinOpenThreads();
     void JoinThreadsTimeStampControlReset();
     void TimeStampControlReset();
     void OpenThreadsTimeStampControlReset();
-    void SetAcquisitioFrameRate(float rate);
 
     int ThreadGrabWithGetImageBufferFun(int nCurCameraIndex);
     int ThreadGrabWithGetOneFrameFun(int nCurCameraIndex);
     int ThreadConsumeFun(int nCurCameraIndex);
-    int ThreadTriggerFun();
-    int ThreadTriggerWithMutexFun();
+    int ThreadSoftwareTriggerFun();
+    int ThreadTriggerGigActionCommandFun();
     int ThreadTimeStampControlResetFun(int nCurCameraIndex);
 
 
 private:
    
-     void DoSoftwareOnce();
-     void SetTriggerMode(void);
-     void SetTriggerSource(void);
+     int  SetTriggerMode(void);
+     int SetTriggerSoftwareMode();
+     int SetTriggerGigEAction();
  
 };

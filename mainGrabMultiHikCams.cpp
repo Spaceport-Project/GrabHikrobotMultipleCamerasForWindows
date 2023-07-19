@@ -16,31 +16,42 @@ void ctrlC (int)
 }
 
 int main(int argc, char *argv[]) {
-
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
-    tp += std::chrono::milliseconds{3000};
-  
+    tp += std::chrono::milliseconds{1000};
 
-    ImageBuffer  buf;
-    const int buff_size = 200;
-    buf.setCapacity(buff_size);
+    std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras(tp));
 
-    HikMultipleCameras *hikroCams = new HikMultipleCameras(buf, tp);
     signal (SIGINT, ctrlC);
+    
     hikroCams->OpenDevices();
+
     hikroCams->OpenThreadsTimeStampControlReset();
     hikroCams->JoinThreadsTimeStampControlReset();
 
-    hikroCams->SetHeightWidth(1200,1920);
-    hikroCams->SetTriggerModeOnOff(MV_TRIGGER_MODE_ON);
-   
-    hikroCams->StartGrabbing();
- 
+    if (MV_OK != hikroCams->ConfigureCameraSettings()) 
+    {
+      return -1;
+    }
+    if (MV_OK != hikroCams->SetTriggerModeOnOff(MV_TRIGGER_MODE_ON))
+    {
+      return -1;
+    }
 
-    hikroCams->SaveImages();
+  
+   
+    if (MV_OK != hikroCams->StartGrabbing()) 
+    {
+      return -1;
+    }
+    if (MV_OK != hikroCams->SaveImages()) 
+    {
+      return -1;
+    }
+ 
     hikroCams->CloseDevices();
 
-    delete hikroCams;
+
+    return 0;
 
 
 }

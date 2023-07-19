@@ -8,6 +8,11 @@
 #include "MvCameraControl.h"
 bool g_bIsGetImage = true;
 bool g_bExit = false;
+unsigned int g_DeviceKey = 1;
+unsigned int g_GroupKey = 1;
+unsigned int g_GroupMask= 1;
+
+
 
 #define FPS_CALC(_WHAT_) \
 do \
@@ -72,34 +77,50 @@ void __stdcall ImageCallBackEx(unsigned char * pData, MV_FRAME_OUT_INFO_EX* pFra
         printf("GetOneFrame, Width[%d], Height[%d], nFrameNum[%d]\n", 
             pFrameInfo->nWidth, pFrameInfo->nHeight, pFrameInfo->nFrameNum);
         g_bIsGetImage = true;
+       FPS_CALC ("Image Grabbing FPS:");
     }
+
 }
-static void* WorkThread(void* pUser)
+static __stdcall void* WorkThread(void* pUser)
 {
+    MV_ACTION_CMD_INFO stActionCmdInfo = {0};
+    MV_ACTION_CMD_RESULT_LIST stActionCmdResults = {0};
+
+    stActionCmdInfo.nDeviceKey = g_DeviceKey;
+    stActionCmdInfo.nGroupKey = g_GroupKey;
+    stActionCmdInfo.nGroupMask = g_GroupMask;
+    stActionCmdInfo.pBroadcastAddress = "255.255.255.255";
+    stActionCmdInfo.nTimeOut = 25;
+    stActionCmdInfo.bActionTimeEnable = 0;
+
+
+
     while(1)
     {
         if(g_bExit)
         {
             break;
         }
-        if (true == g_bIsGetImage)
+       // if (true == g_bIsGetImage)
+        if (true)
         {
-            int nRet = MV_CC_SetCommandValue(pUser, "TriggerSoftware");
+            int nRet = MV_GIGE_IssueActionCommand(&stActionCmdInfo, &stActionCmdResults);
+            // int nRet = MV_CC_SetCommandValue(pUser, "TriggerSoftware");
             if(MV_OK != nRet)
             {
-                printf("failed in TriggerSoftware[%x]\n", nRet);
+                printf("failed in Trigger Action 1[%x]\n", nRet);
             }
-            else
-            {
-                g_bIsGetImage = false;
-            }
+            // else
+            // {
+            //     g_bIsGetImage = false;
+            // }
         }
         else
         {
             continue;
         }
 
-        FPS_CALC ("Image Grabbing FPS:");
+        
     }
     return NULL;
 }
@@ -138,7 +159,7 @@ int main()
         }
         printf("Please Intput camera index: ");
         unsigned int nIndex = 0;
-        scanf("%d", &nIndex);
+        int sc = scanf("%d", &nIndex);
         if (nIndex >= stDeviceList.nDeviceNum)
         {
             printf("Intput error!\n");
@@ -176,19 +197,8 @@ int main()
             }
         }
         
-        // nRet = MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", false);
-        // if (MV_OK != nRet)
-        // {
-        //     printf("set AcquisitionFrameRateEnable fail! nRet [%x]\n", nRet);
-        //     break;
-        // }
+       
 
-        MV_CC_SetFloatValue(handle, "ExposureTime", 5000.0f);
-        MV_CC_SetBoolValue(handle, "AcquisitionFrameRateEnable", true);
-        MV_CC_SetFloatValue(handle, "AcquisitionFrameRate", 100.0f); 
-        MV_CC_SetBoolValue(handle, "GevPAUSEFrameReception", true);
-
-        
         // Set the trigger mode to on
         nRet = MV_CC_SetEnumValue(handle, "TriggerMode", 1);
         if (MV_OK != nRet)
@@ -196,19 +206,85 @@ int main()
             printf("MV_CC_SetTriggerMode fail! nRet [%x]\n", nRet);
             break;
         }
-        // Set the trigger source
-        nRet = MV_CC_SetEnumValue(handle, "TriggerSource", MV_TRIGGER_SOURCE_SOFTWARE);
+       
+
+
+        nRet = MV_CC_SetEnumValue(handle,"ExposureAuto", 0);
         if (MV_OK != nRet)
         {
-            printf("MV_CC_SetTriggerSource fail! nRet [%x]\n", nRet);
+            printf("Set ExposureAuto fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetFloatValue(handle,"ExposureTime", 20000.0f);
+        if (MV_OK != nRet)
+        {
+            printf("Set Exposure Time fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetBoolValue(handle,"AcquisitionFrameRateEnable", true);
+        if (MV_OK != nRet)
+        {
+            printf("Set AcquisitionFrameRateEnable fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetFloatValue(handle,"AcquisitionFrameRate", 100.0f); 
+        if (MV_OK != nRet)
+        {
+            printf("Set AcquisitionFrameRate fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+        nRet = MV_CC_SetBoolValue(handle,"GevIEEE1588", true);
+        if (MV_OK != nRet)
+        {
+            printf("Set GevIEEE1588 fail! nRet [0x%x]\n", nRet);
             break;
         }
 
-        // nRet = MV_CC_SetCommandValue(handle, "TriggerSoftware");
-        // if(MV_OK != nRet)
-        // {
-        //     printf("failed in TriggerSoftware[%x]\n", nRet);
-        // }
+        nRet = MV_CC_SetFloatValue(handle,"Gain", 15.0f);
+        if (nRet != MV_OK) printf("Cannot set gain value!.  \n ");
+        
+        // ch:���ô���ģʽΪon | en:Set trigger mode as on
+        nRet = MV_CC_SetEnumValue(handle, "TriggerMode", 1);
+        if (MV_OK != nRet)
+        {
+            printf("Set Trigger Mode fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+
+        // ch:���ô���ԴΪAction1 | en:Set trigger source as Action1
+        nRet = MV_CC_SetEnumValueByString(handle, "TriggerSource", "Action1");
+        if (MV_OK != nRet)
+        {
+            printf("Set Trigger Source fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+
+        // ch:����Action Device Key | en:Set Action Device Key
+        nRet = MV_CC_SetIntValue(handle, "ActionDeviceKey", g_DeviceKey);
+        if (MV_OK != nRet)
+        {
+            printf("Set Action Device Key fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+       
+
+        // ch:����Action Group Key | en:Set Action Group Key100
+        nRet = MV_CC_SetIntValue(handle, "ActionGroupKey", g_GroupKey);
+        if (MV_OK != nRet)
+        {
+            printf("Set Action Group Key fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+
+        // ch:����Action Group Mask | en:Set Action Group Mask
+        nRet = MV_CC_SetIntValue(handle, "ActionGroupMask", g_GroupMask);
+        if (MV_OK != nRet)
+        {
+            printf("Set Action Group Mask fail! nRet [0x%x]\n", nRet);
+            break;
+        }
+
+       
 
         // Register the image callback function
         nRet = MV_CC_RegisterImageCallBackEx(handle, ImageCallBackEx, handle);
