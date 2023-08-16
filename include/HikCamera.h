@@ -2,6 +2,8 @@
 #pragma once
 #include "MvCameraControl.h"
 #include <string.h>
+#include <vector>
+#include <array>
 
 #ifndef MV_NULL
 #define MV_NULL    0
@@ -21,6 +23,8 @@ public:
 
     // Is the device accessible
     static bool IsDeviceAccessible(MV_CC_DEVICE_INFO* pstDevInfo, unsigned int nAccessMode);
+
+    int CreateHandle(MV_CC_DEVICE_INFO* pstDeviceInfo);
 
     // Open Device
     int Open(MV_CC_DEVICE_INFO* pstDeviceInfo);
@@ -115,6 +119,8 @@ public:
    // int SaveImageToFile(MV_SAVE_IMAGE_TO_FILE_PARAM_EX* pstSaveFileParam);
 
     static int GIGEIssueActionCommand(MV_ACTION_CMD_INFO* pstActionCmdInfo, MV_ACTION_CMD_RESULT_LIST* pstActionCmdResults);
+
+    static bool ConvertToHexIp(unsigned int *nHexIP, unsigned int *nDecIP);
 
 
 private:

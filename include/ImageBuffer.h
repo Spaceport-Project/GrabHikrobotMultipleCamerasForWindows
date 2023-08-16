@@ -1,17 +1,18 @@
 #include <vector>
 #include <condition_variable>
-#include "CircularBuffer.h"
-//#include <boost/circular_buffer.hpp>
+//#include "CircularBuffer.h"
+#include <boost/circular_buffer.hpp>
 
+template <class DataType>
 class ImageBuffer
 {
   public:
     ImageBuffer () {};
 
     bool
-    pushBack(const std::vector< std::vector<uint8_t> >&);
+    pushBack(const DataType &);
 
-    std::vector<std::vector<uint8_t> >
+    DataType
     getFront ();
 
     inline bool
@@ -57,8 +58,47 @@ class ImageBuffer
 
     std::mutex bmutex_;
     std::condition_variable buff_empty_;
-   // boost::circular_buffer<std::vector<std::vector<uint8_t>  >> buffer_;
-    CircularBuffer<std::vector<std::vector<uint8_t>  >>  buffer_;
+    boost::circular_buffer<DataType> buffer_;
+   // CircularBuffer< DataType>  buffer_;
 
 
 };
+
+
+template <class DataType>
+bool
+ImageBuffer<DataType>::pushBack (const DataType& imageBuffers)
+{
+  bool retVal = false;
+  {
+   std::lock_guard<std::mutex> buff_lock (bmutex_);
+    if (!buffer_.full ()) retVal = true;
+    buffer_.push_back(imageBuffers);
+
+  }
+  buff_empty_.notify_one ();
+  return (retVal);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+template <class DataType>
+DataType 
+ImageBuffer<DataType>::getFront ()
+{
+
+	DataType imageBuffers;
+  {
+    std::unique_lock<std::mutex> buff_lock(bmutex_);
+    while (buffer_.empty ())
+    {
+     // if (is_done) break;
+
+      buff_empty_.wait(buff_lock);
+    }
+
+    imageBuffers = buffer_.front();
+    buffer_.pop_front ();
+  }
+  return (imageBuffers);
+}
+

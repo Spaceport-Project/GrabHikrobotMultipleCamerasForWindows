@@ -5,7 +5,7 @@ project(GrabMultiHikrobotCameras VERSION 0.1 LANGUAGES C CXX)
 if (CMAKE_BUILD_TYPE)
     unset(CMAKE_BUILD_TYPE CACHE)
 endif()
-set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
+set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build (Debug, Release)")
 message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -17,7 +17,6 @@ set(PROJECT_SOURCES
         mainGrabMultiHikCams.cpp
         src/HikCamera.cpp 
         src/HikMultipleCameras.cpp 
-        src/ImageBuffer.cpp
         
        
 )
@@ -38,7 +37,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_definitions(${GrabMultiHikCams}  PRIVATE DEBUG)
 endif()
 target_include_directories(${GrabMultiHikCams}  PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${Boost_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include )
-target_link_libraries(${GrabMultiHikCams}  PRIVATE ${PROJECT_LIBS} )
+target_link_libraries(${GrabMultiHikCams}  PRIVATE ${PROJECT_LIBS} avformat avcodec swscale avutil)
 
 add_executable(GetImageBuffer  mainGetImageBuffer.cpp)
 target_include_directories(GetImageBuffer PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
@@ -59,3 +58,7 @@ target_link_libraries(TriggerWithPTP PRIVATE ${PROJECT_LIBS})
 add_executable(TriggerWithPTP2  mainTriggerWithPTP2.cpp)
 target_include_directories(TriggerWithPTP2 PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(TriggerWithPTP2 PRIVATE ${PROJECT_LIBS})
+
+add_executable(SetIpCameras  mainSetIpCameras.cpp src/HikCamera.cpp)
+target_include_directories(SetIpCameras PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(SetIpCameras PRIVATE ${PROJECT_LIBS})

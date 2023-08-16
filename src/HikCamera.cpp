@@ -1,5 +1,7 @@
 #include "HikCamera.h"
 #include <iostream>
+#include <vector>
+#include <array>
 HikCamera::HikCamera()
 {
     m_hDevHandle = MV_NULL;
@@ -32,8 +34,18 @@ bool HikCamera::IsDeviceAccessible(MV_CC_DEVICE_INFO* pstDevInfo, unsigned int n
     return MV_CC_IsDeviceAccessible(pstDevInfo, nAccessMode);
 }
 
+//Create Handle
+int HikCamera::CreateHandle(MV_CC_DEVICE_INFO* pstDeviceInfo){
+    int nRet  = MV_CC_CreateHandle(&m_hDevHandle, pstDeviceInfo);
+   // std::cout<<"Create Handle nRet:"<<nRet<<std::endl;
+    if (MV_OK != nRet)
+    {
+        printf("Cannot create handle! \n");
+    }
+     return nRet;
+}
 //Open Device
-int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo)
+int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo )
 {
     if (MV_NULL == pstDeviceInfo)
     {
@@ -45,6 +57,7 @@ int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo)
         return MV_E_CALLORDER;
     }
 
+
     int nRet  = MV_CC_CreateHandle(&m_hDevHandle, pstDeviceInfo);
    // std::cout<<"Create Handle nRet:"<<nRet<<std::endl;
     if (MV_OK != nRet)
@@ -52,6 +65,7 @@ int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo)
         return nRet;
     }
 
+    
     nRet = MV_CC_OpenDevice(m_hDevHandle);
     if (MV_OK != nRet)
     {
@@ -335,6 +349,20 @@ int HikCamera::SaveImage(MV_SAVE_IMAGE_PARAM_EX* pstParam)
 int HikCamera::GIGEIssueActionCommand(MV_ACTION_CMD_INFO* pstActionCmdInfo, MV_ACTION_CMD_RESULT_LIST* pstActionCmdResults){
 
     return  MV_GIGE_IssueActionCommand(pstActionCmdInfo, pstActionCmdResults);
+}
+
+bool HikCamera::ConvertToHexIp(unsigned int *nHexIP, unsigned int *nDecIP)
+{
+    if ( nDecIP[0] < 0 || nDecIP[0] > 255
+        || nDecIP[1] < 0 || nDecIP[1] > 255
+        || nDecIP[2] < 0 || nDecIP[2] > 255
+        || nDecIP[3] < 0 || nDecIP[3] > 255
+        )
+    {
+        return false;
+    }
+    *nHexIP = (nDecIP[0] << 24) + (nDecIP[1] << 16) + (nDecIP[2] << 8) + nDecIP[3];
+    return true;
 }
 
 

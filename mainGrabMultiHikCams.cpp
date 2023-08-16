@@ -16,14 +16,27 @@ void ctrlC (int)
 }
 
 int main(int argc, char *argv[]) {
+
+    if (argc != 2) {
+        printf("Usage: %s <path/to/CameraSettings.json>\n", argv[0]);
+        return -1;
+    } 
+    std::string cameraSettingsFile(argv[1]);
+    ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>  > >  buf;
+    const int buff_size = 500;
+    buf.setCapacity(buff_size);
+
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     tp += std::chrono::milliseconds{1000};
 
-    std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras(tp));
+    std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras(buf, tp, cameraSettingsFile));
 
     signal (SIGINT, ctrlC);
     
-    hikroCams->OpenDevices();
+   // hikroCams->OpenDevices();
+   
+    hikroCams->OpenDevicesInThreads();
+    hikroCams->JoinOpenDevicesInThreads();
 
     hikroCams->OpenThreadsTimeStampControlReset();
     hikroCams->JoinThreadsTimeStampControlReset();
@@ -36,19 +49,28 @@ int main(int argc, char *argv[]) {
     {
       return -1;
     }
-
-  
    
     if (MV_OK != hikroCams->StartGrabbing()) 
     {
       return -1;
     }
-    if (MV_OK != hikroCams->SaveImages()) 
+    if (MV_OK != hikroCams->Save2BufferThenDisk()) 
     {
       return -1;
     }
  
-    hikroCams->CloseDevices();
+    if (-1 == hikroCams->StopGrabbing())
+    {
+        return -1;
+    } 
+
+
+    // hikroCams->CloseDevices();
+    hikroCams->CloseDevicesInThreads();
+    hikroCams->JoinCloseDevicesInThreads();
+
+
+   
 
 
     return 0;
