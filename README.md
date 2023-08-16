@@ -19,5 +19,7 @@ make -j4
 ```
 ## Usage
 
-After setting build type "Release or Debug", please run the executable "GrabMultiHikCams_Release" or "GrabMultiHikCams_Debug" depending on your choise, 
-and make sure the json file named "CameraSettings.json" which contains some camera settings, e.g., exposure time, trigger time interval, is in the same folder as the executable. 
+After setting build type "Release or Debug", please run the executable "GrabMultiHikCams_Release" or "GrabMultiHikCams_Debug" with the argument of <path/to/CameraSettings.json>. 
+
+Example Usage:
+./GrabMultiHikCams_Release /home/user/Documents/CameraSettings.json

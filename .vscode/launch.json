@@ -29,19 +29,41 @@
             ]
         },
 
+        {
+            "name": "(gdb) mainSetIpCameras",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/SetIpCameras",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
 
         {
             "name": "Grab Hikrobot Cams",
             "type": "cppdbg",
             "request": "launch",
             "miDebuggerPath": "/usr/bin/gdb",
-            "program": "${command:cmake.launchTargetPath}",
-            // "args": [
-            //     "--obj",
-            //     "~/Software/icp_cloud/icp_all_cloud_Ali.obj",
-            //     "--data_file",
-            //     "~/Software/icp_cloud/data.json"
-            // ],
+            // "program": "${command:cmake.launchTargetPath}",
+            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug",
+            "args": [
+                "/home/hamit/Softwares/GrabHikrobotMultipleCameras/CameraSettings.json"
+             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
