@@ -1,11 +1,13 @@
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+// #include <io.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <crtdefs.h>
+#include <process.h>
+#include <Windows.h>
 #include "MvCameraControl.h"
 
 bool g_bIsGetImage = true;
@@ -37,7 +39,7 @@ void PressEnterToExit(void)
     fprintf( stderr, "\nPress enter to exit.\n");
     while( getchar() != '\n');
     g_bExit = true;
-    sleep(1);
+    Sleep(1);
 }
 bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
 {
@@ -82,7 +84,7 @@ void __stdcall ImageCallBackEx(unsigned char * pData, MV_FRAME_OUT_INFO_EX* pFra
     
 }
 
-static void* WorkThread(void* pUser)
+ static unsigned int __stdcall WorkThread(void* pUser)
 {
     while(1)
     {
@@ -238,13 +240,16 @@ int main()
             printf("MV_CC_StartGrabbing fail! nRet [%x]\n", nRet);
             break;
         }
-        pthread_t nThreadID;
-        nRet = pthread_create(&nThreadID, NULL ,WorkThread , handle);
-        if (nRet != 0)
-        {
-            printf("thread create failed.ret = %d\n",nRet);
-            break;
-        }
+        unsigned int nThreadID =0;
+         void* hThreadHandle = (void*) _beginthreadex( NULL , 0 , WorkThread , handle, 0 , &nThreadID );
+
+        // pthread_t nThreadID;
+        // nRet = pthread_create(&nThreadID, NULL ,WorkThread , handle);
+        // if (nRet != 0)
+        // {
+        //     printf("thread create failed.ret = %d\n",nRet);
+        //     break;
+        // }
         PressEnterToExit(); 
         // Stop grabbing images
         nRet = MV_CC_StopGrabbing(handle);

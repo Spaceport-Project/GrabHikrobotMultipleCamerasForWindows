@@ -114,7 +114,7 @@ public:
 				return false;
 			}
 
-			AVCodec* codec = avcodec_find_encoder(AV_CODEC_ID_PNG);
+			AVCodec* codec = (AVCodec *)avcodec_find_encoder(AV_CODEC_ID_PNG);
 			if (!codec) {
 				std::cout << "Cannot find encoder";
 				return false;
@@ -234,8 +234,8 @@ public:
 		enc_pkt->stream_index = streamIndex;
 		enc_pkt->data = (unsigned char*)data;
 		enc_pkt->size = length;
-
-		enc_pkt->pts =  av_rescale_q(timestamp, AV_TIME_BASE_Q, out_stream_texture->time_base);
+		enc_pkt->pts =  av_rescale_q(timestamp, {1, 1000000}, out_stream_texture->time_base);
+		// enc_pkt->pts =  av_rescale_q(timestamp, AV_TIME_BASE_Q, out_stream_texture->time_base);
 		enc_pkt->dts = enc_pkt->pts;
 
 		int ret = av_write_frame(format_context, enc_pkt);

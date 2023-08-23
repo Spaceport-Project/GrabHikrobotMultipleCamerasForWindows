@@ -4,6 +4,8 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
+
         {
             "name": "(gdb) mainTriggerWithPTP2",
             "type": "cppdbg",
@@ -30,6 +32,32 @@
         },
 
         {
+            "name": "(gdb) Grab Multi Hikrobot Cams",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug",
+            "args": [
+                "/home/hamit/Softwares/GrabHikrobotMultipleCameras/CameraSettings.json"
+             ],
+            "stopAtEntry": false,
+            "cwd": "${fileDirname}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+ {
             "name": "(gdb) mainSetIpCameras",
             "type": "cppdbg",
             "request": "launch",
@@ -58,11 +86,11 @@
             "name": "Grab Hikrobot Cams",
             "type": "cppdbg",
             "request": "launch",
-            "miDebuggerPath": "/usr/bin/gdb",
+             "miDebuggerPath": "",
             // "program": "${command:cmake.launchTargetPath}",
-            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug",
+            "program": "${workspaceFolder}/build/Debug/GrabMultiHikCams_Debug",
             "args": [
-                "/home/hamit/Softwares/GrabHikrobotMultipleCameras/CameraSettings.json"
+                "C:/Users/hamit/Softwares/GrabMultiHikrobotCams/CameraSettings.json"
              ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

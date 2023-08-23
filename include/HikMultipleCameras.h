@@ -5,6 +5,7 @@
 #include <thread>
 #include <condition_variable>
 #include <memory>
+#include <cstdint>
 #include <map>
 #include "HikCamera.h"
 #include "ImageBuffer.h"
@@ -32,10 +33,10 @@ private:
     MV_CC_DEVICE_INFO_LIST  m_stDevList;
     MV_ACTION_CMD_INFO      m_actionCMDInfo;
     MV_ACTION_CMD_RESULT_LIST m_actionCMDResList;
-    uint                    m_nDeviceNum;
-    uint                    m_nDeviceKey ;
-    uint                    n_nGroupKey ;
-    uint                    m_nGroupMask;
+    unsigned int            m_nDeviceNum;
+    unsigned int                     m_nDeviceKey ;
+    unsigned int                    n_nGroupKey ;
+    unsigned int                    m_nGroupMask;
     std::string             m_sTriggerSource;
     const std::string&      m_sCameraSettingsFile;
     bool                    m_bOpenDevice;
@@ -62,7 +63,7 @@ private:
 
     byteArrayVector         m_pSaveImagesBuf;
     byteArrayVector         m_pDataForSaveImages;
-    std::vector<uint>       m_nSaveImagesBufSize;
+    std::vector<unsigned int>       m_nSaveImagesBufSize;
     frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
     ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
@@ -89,6 +90,7 @@ public:
 public:
     
     void EnumDevices();
+    void EnumDevicesByIPAddress();
     void OpenDevices();
     int StartGrabbing();
     void CloseDevices();

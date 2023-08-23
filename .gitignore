@@ -1,3 +1,5 @@
 build
+out/build/x64-Debug
 *.jpg
 MvSdkLog
+.vs/

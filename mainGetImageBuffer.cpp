@@ -1,9 +1,11 @@
 #include <stdio.h>
 #include <iostream>
 #include <string.h>
-#include <unistd.h>
+//#include <io.h>
 #include <stdlib.h>
-#include <pthread.h>
+#include <crtdefs.h>
+#include <process.h>
+#include <windows.h>
 #include <chrono>
 #include "MvCameraControl.h"
 
@@ -37,7 +39,7 @@ void PressEnterToExit(void)
     fprintf( stderr, "\nPress enter to exit.\n");
     while( getchar() != '\n');
     g_bExit = true;
-    sleep(1);
+    Sleep(1);
 }
 
 bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
@@ -72,7 +74,7 @@ bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
     return true;
 }
 
-static  void* WorkThread(void* pUser)
+static  unsigned int __stdcall WorkThread(void* pUser)
 {
     int nRet = MV_OK;
 
@@ -119,7 +121,6 @@ int main()
 {
     int nRet = MV_OK;
     void* handle = NULL;
-
     do 
     {
         // ch:枚举设备 | en:Enum device
@@ -236,16 +237,15 @@ int main()
             break;
         }
 
-        
-
-
-		pthread_t nThreadID;
-        nRet = pthread_create(&nThreadID, NULL, WorkThread, handle);
-        if (nRet != 0)
-        {
-            printf("thread create failed.ret = %d\n",nRet);
-            break;
-        }
+        unsigned int nThreadID = 0;
+        void* hThreadHandle = (void*) _beginthreadex( NULL , 0 , WorkThread , handle, 0 , &nThreadID );
+		// pthread_t nThreadID;
+        // nRet = pthread_create(&nThreadID, NULL, WorkThread, handle);
+        // if (nRet != 0)
+        // {
+        //     printf("thread create failed.ret = %d\n",nRet);
+        //     break;
+        // }
 
         PressEnterToExit();
 

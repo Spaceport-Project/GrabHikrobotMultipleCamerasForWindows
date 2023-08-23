@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <unistd.h>
+#include <io.h>
 #include <stdlib.h>
 #include <cmath>  
 #include "MvCameraControl.h"
@@ -9,6 +9,7 @@
 #include <cstring>
 #include <chrono>
 #include <iostream>
+#include <Windows.h>
 #include <mutex>
 #include <condition_variable>
 
@@ -53,7 +54,7 @@ void PressEnterToExit(void)
     fprintf( stderr, "\nPress enter to exit.\n");
     while( getchar() != '\n');
     g_bExit = true;
-    sleep(1);
+    Sleep(1);
 }
 
 bool PrintDeviceInfo(MV_CC_DEVICE_INFO* pstMVDevInfo)
@@ -130,7 +131,7 @@ static  unsigned int __stdcall ReceiveImageWorkThread(void* pUser)
         if (nRet == MV_OK)
         {
            { 
-            std::lock_guard<std::mutex> lk(m_consumeMutex);
+            //std::lock_guard<std::mutex> lk(m_consumeMutex);
             printf("Get Image Buffer: Width[%d], Height[%d], FrameNum[%d]\n", 
                 stImageOut.stFrameInfo.nWidth, stImageOut.stFrameInfo.nHeight, stImageOut.stFrameInfo.nFrameNum);
             m_pSaveImageBuf = (unsigned char *) malloc(stImageOut.stFrameInfo.nFrameLen);
@@ -149,7 +150,7 @@ static  unsigned int __stdcall ReceiveImageWorkThread(void* pUser)
                      
             }
            }
-            m_dataReadyCon.notify_one();
+          //  m_dataReadyCon.notify_one();
             
         }
         else
@@ -168,7 +169,7 @@ static  unsigned int __stdcall ReceiveImageWorkThread(void* pUser)
 }
 
 
-static int __stdcall SaveImagesWorkThread (void* pUser)
+static unsigned int __stdcall SaveImagesWorkThread (void* pUser)
 {
 
         MV_SAVE_IMAGE_PARAM_EX stParam;
@@ -420,22 +421,28 @@ int main()
         m_bStartGrabbing = true;
 
        
-        std::thread nReceiveImageThread(std::bind(ReceiveImageWorkThread, handle));
-        
-        std::thread nActionCommandThread(std::bind(ActionCommandWorkThread, handle));
+        unsigned int nReceiveThreadID =0;
+        void* hReceiveThreadHandle = (void*) _beginthreadex( NULL , 0 , ReceiveImageWorkThread , handle, 0 , &nReceiveThreadID );
+       // std::thread nReceiveImageThread(std::bind(ReceiveImageWorkThread, handle));
         
 
-        std::thread nSavingImageThread(std::bind(SaveImagesWorkThread, handle));
+        unsigned int nActionCommandThreadID =0;
+        void* hActionCommandThreadHandle = (void*) _beginthreadex( NULL , 0 , ActionCommandWorkThread , handle, 0 , &nActionCommandThreadID );
+       // std::thread nActionCommandThread(std::bind(ActionCommandWorkThread, handle));
+        
+        unsigned int nSavingImageThreadID =0;
+        void* hSavingImagesThreadHandle = (void*) _beginthreadex( NULL , 0 , SaveImagesWorkThread , handle, 0 , &nSavingImageThreadID );
+        //std::thread nSavingImageThread(std::bind(SaveImagesWorkThread, handle));
 
         printf("Press a key to stop grabbing.\n");
         PressEnterToExit();
 
         g_bExit = true;
-        sleep(1000);
+        Sleep(1000);
 
-        nActionCommandThread.join();
-        nReceiveImageThread.join();
-        nSavingImageThread.join();
+        // nActionCommandThread.join();
+        // nReceiveImageThread.join();
+        // nSavingImageThread.join();
 
         // ch:ֹͣȡ�� | en:Stop grab image
         nRet = MV_CC_StopGrabbing(handle);

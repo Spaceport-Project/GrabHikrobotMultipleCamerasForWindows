@@ -8,6 +8,7 @@
 #include <functional> 
 #include <cmath>  
 #include <memory>
+#include <cstdint>
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -83,8 +84,9 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
    
 
 
+    //EnumDevicesByIPAddress();
     EnumDevices();
- 
+
     if (m_nDeviceNum > 0)
     {
        
@@ -102,7 +104,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
             exit(0);
         };
 
-        for (uint i = 0 ; i < m_nDeviceNum ; i++)
+        for (unsigned int i = 0 ; i < m_nDeviceNum ; i++)
         {
             memset(&(m_stImagesInfo[i]), 0, sizeof(MV_FRAME_OUT_INFO_EX));
             m_pDataForSaveImages.push_back(nullptr);
@@ -124,7 +126,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
 int HikMultipleCameras::SetTriggerMode(void)
 {
     int nRet = -1;
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -216,7 +218,7 @@ int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
                 }
                 fwrite(m_pDataForSaveImages[nCurCameraIndex].get(), 1, stParam.nImageLen, fp);
                 fclose(fp);
-                DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImagesInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+                DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%lld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImagesInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
                 
             }
@@ -246,7 +248,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
             std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();           
             nRet = m_pcMyCameras[nCurCameraIndex]->GetImageBuffer(&stImageOut, 1000);
             std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %ld[ms]", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
+            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %lld[ms]", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
             
             if (nRet == MV_OK)
             {
@@ -260,7 +262,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
 
                     uint64_t timeStamp = (((uint64_t) stImageOut.stFrameInfo.nDevTimeStampHigh) << 32) + stImageOut.stFrameInfo.nDevTimeStampLow;
                     uint64_t  timeDif = timeStamp - oldtimeStamp;
-                    u_int64_t hostTimeStamp = stImageOut.stFrameInfo.nHostTimeStamp;
+                    uint64_t hostTimeStamp = stImageOut.stFrameInfo.nHostTimeStamp;
                     uint64_t systemTimeDiff = microseconds - oldmicroseconds;
                     oldtimeStamp = timeStamp; 
                     oldmicroseconds = microseconds;
@@ -345,7 +347,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
 
                     uint64_t timeStamp = (((uint64_t) stImageOut.stFrameInfo.nDevTimeStampHigh) << 32) + stImageOut.stFrameInfo.nDevTimeStampLow;
                     uint64_t  timeDif = timeStamp - oldtimeStamp;
-                    u_int64_t hostTimeStamp = stImageOut.stFrameInfo.nHostTimeStamp;
+                    uint64_t hostTimeStamp = stImageOut.stFrameInfo.nHostTimeStamp;
                     uint64_t systemTimeDiff = microseconds - oldmicroseconds;
                     oldtimeStamp = timeStamp; 
                     oldmicroseconds = microseconds;
@@ -468,6 +470,103 @@ int HikMultipleCameras::ThreadGrabWithGetOneFrameFun(int nCurCameraIndex)
     return nRet;
 }
 
+void HikMultipleCameras::EnumDevicesByIPAddress()
+{
+    memset(&m_stDevList, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
+
+   
+    char nNetExport[128];
+    char nCurrentIp[128];
+    unsigned int nIp1 = 172, nIp2 = 18, nIp3 = 166, nIp4 = 45, nIp;
+    unsigned int n_ExIp1 = 172, n_ExIp2 = 18, n_ExIp3 = 166, n_ExIp4 = 76, n_ExIp;
+    int k = 0;
+    for (int i = 0 ; i < 1 ; i++)
+    {
+        
+        MV_GIGE_DEVICE_INFO stGigEDev = {0};
+        n_ExIp =  (n_ExIp1 << 24) | (n_ExIp2 << 16) | (n_ExIp3 << 8) | n_ExIp4;
+        stGigEDev.nNetExport = n_ExIp;
+        n_ExIp4++;
+
+        for (int j = 0; j < 2; j++) {
+            MV_CC_DEVICE_INFO stDevInfo = {0};
+            nIp = (nIp1 << 24) | (nIp2 << 16) | (nIp3 << 8) | nIp4;
+            stGigEDev.nCurrentIp = nIp;
+            stDevInfo.nTLayerType = MV_GIGE_DEVICE;
+            stDevInfo.SpecialInfo.stGigEInfo = stGigEDev;
+            m_stDevList.pDeviceInfo[k] = new MV_CC_DEVICE_INFO (stDevInfo);
+            nIp4++; k++;
+
+
+
+        }
+    }
+    
+    
+    
+
+
+
+    // int nRet = HikCamera::EnumDevices(MV_GIGE_DEVICE | MV_USB_DEVICE, &m_stDevList);
+    // if ( nRet != MV_OK || m_stDevList.nDeviceNum == 0)
+    // {
+    //     printf("Find no device!\r\n");
+    //     return;
+    // }
+    // printf("Find %d devices!\r\n", m_stDevList.nDeviceNum);
+    m_nDeviceNum = k;
+
+
+
+   
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
+    {
+        
+        MV_CC_DEVICE_INFO* pDeviceInfo = m_stDevList.pDeviceInfo[i];
+        m_pcMyCameras.push_back(std::make_unique<HikCamera>());
+        int nRet = m_pcMyCameras[i]->CreateHandle(pDeviceInfo);
+        if (MV_OK != nRet)
+        {
+            printf("Create Handle fail! DevIndex[%d], nRet[0x%x]\n",i, nRet);
+            break;
+        }
+
+
+
+        // if (pDeviceInfo->nTLayerType == MV_GIGE_DEVICE)
+        // {
+        //     int nIp1 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
+        //     int nIp2 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
+        //     int nIp3 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
+        //     int nIp4 = (pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
+        //     // Print the IP address and user defined name of the current camera
+        //     DEBUG_PRINT("Device Model Name: %s\n", pDeviceInfo->SpecialInfo.stGigEInfo.chModelName);
+        //     DEBUG_PRINT("CurrentIp: %d.%d.%d.%d\n" , nIp1, nIp2, nIp3, nIp4);
+        //   //  printf("UserDefinedName: %s\n\n" , pDeviceInfo->SpecialInfo.stGigEInfo.chUserDefinedName);
+        //     DEBUG_PRINT("SerialNumber: %s\n\n", pDeviceInfo->SpecialInfo.stGigEInfo.chSerialNumber);
+        //     m_mapSerials.insert(std::make_pair(i , (char *)pDeviceInfo->SpecialInfo.stGigEInfo.chSerialNumber));
+        //     m_mapModels.insert(std::make_pair(i, (char *) pDeviceInfo->SpecialInfo.stGigEInfo.chModelName));
+            
+        // }
+        // else if (pDeviceInfo->nTLayerType == MV_USB_DEVICE)
+        // {
+            
+        //     DEBUG_PRINT("Device Model Name: %s\n", pDeviceInfo->SpecialInfo.stUsb3VInfo.chModelName);
+        //     DEBUG_PRINT("UserDefinedName: %s\n\n", pDeviceInfo->SpecialInfo.stUsb3VInfo.chUserDefinedName);
+        //     m_mapSerials.insert(std::make_pair( i, (char *)pDeviceInfo->SpecialInfo.stUsb3VInfo.chSerialNumber));
+        //     m_mapModels.insert(std::make_pair(i, (char *) pDeviceInfo->SpecialInfo.stUsb3VInfo.chModelName));
+
+        // }
+        // else {
+        //     printf("Camera not supported!\n");
+        // }    
+    
+        
+       
+    }
+
+    
+}
 
 void HikMultipleCameras::EnumDevices()
 {
@@ -481,11 +580,8 @@ void HikMultipleCameras::EnumDevices()
     printf("Find %d devices!\r\n", m_stDevList.nDeviceNum);
     
     m_nDeviceNum =  m_stDevList.nDeviceNum;
-    unsigned int nIP[4] = {192, 168, 1, 100};
-    unsigned int nIPGateway[4] = {192, 168, 1, 1};
-    unsigned int nIPMask[4] = {255, 255, 255, 0};
-
-    for (uint i = 0; i < m_nDeviceNum; i++)
+   
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         
         MV_CC_DEVICE_INFO* pDeviceInfo = m_stDevList.pDeviceInfo[i];
@@ -535,9 +631,11 @@ void HikMultipleCameras::OpenDevices()
     
    
     
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
        // m_pcMyCamera.push_back(std::make_unique<HikCamera>());
+        //std::cout<<"step 0"<<std::endl;
+
         int nRet = m_pcMyCameras[i]->Open(m_stDevList.pDeviceInfo[i]);
         if (nRet != MV_OK)
         {
@@ -553,7 +651,7 @@ void HikMultipleCameras::OpenDevices()
             m_bOpenDevice = true;
             if (m_stDevList.pDeviceInfo[i]->nTLayerType == MV_GIGE_DEVICE)
             {
-                uint nPacketSize = 0;
+                unsigned int  nPacketSize = 0;
                 nRet = m_pcMyCameras[i]->GetOptimalPacketSize(&nPacketSize);
                 if (nPacketSize > 0)
                 {
@@ -582,7 +680,7 @@ void HikMultipleCameras::OpenDevices()
 void HikMultipleCameras::OpenDevicesInThreads()
 {
 
-    for (uint  i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
             m_tOpenDevicesThreads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadOpenDevicesFun, this, i)));
@@ -616,7 +714,7 @@ int HikMultipleCameras::ThreadOpenDevicesFun(int nCurCameraIndex)
         m_bOpenDevice = true;
         if (m_stDevList.pDeviceInfo[nCurCameraIndex]->nTLayerType == MV_GIGE_DEVICE)
         {
-            uint nPacketSize = 0;
+            unsigned int nPacketSize = 0;
             nRet = m_pcMyCameras[nCurCameraIndex]->GetOptimalPacketSize(&nPacketSize);
             if (nPacketSize > 0)
             {
@@ -645,7 +743,7 @@ int HikMultipleCameras::ThreadOpenDevicesFun(int nCurCameraIndex)
 
 void HikMultipleCameras::JoinOpenDevicesInThreads() {
 
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -660,7 +758,7 @@ void HikMultipleCameras::JoinOpenDevicesInThreads() {
 void HikMultipleCameras::CloseDevicesInThreads()
 {
 
-    for (uint  i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -696,7 +794,7 @@ int HikMultipleCameras::ThreadCloseDevicesFun(int nCurCameraIndex)
 }
 void HikMultipleCameras::JoinCloseDevicesInThreads() {
 
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -739,7 +837,7 @@ int HikMultipleCameras::ConfigureCameraSettings()
  
     
     int nRet = -1;
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i]) 
         {
@@ -817,7 +915,7 @@ int HikMultipleCameras::ConfigureCameraSettings()
 void HikMultipleCameras::OpenThreadsTimeStampControlReset()
 {
 
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
             if (m_pcMyCameras[i])
             {
@@ -860,7 +958,7 @@ int HikMultipleCameras::ThreadTimeStampControlResetFun(int nCurCameraIndex) {
 void HikMultipleCameras::JoinThreadsTimeStampControlReset()
 {
 
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -871,7 +969,7 @@ void HikMultipleCameras::JoinThreadsTimeStampControlReset()
 
 void HikMultipleCameras::TimeStampControlReset() 
 {
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -889,7 +987,7 @@ void HikMultipleCameras::CloseDevices()
 {
 
 	int nRet = -1;
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1037,13 +1135,13 @@ int HikMultipleCameras::ThreadSave2DiskFun(){
     while (true)
     {
         if (m_bExit)   break;
-        Write2MP4 (m_buf.getFront ());
+        Write2Disk (m_buf.getFront ());
     }
 
       
     while (!m_buf.isEmpty ()) {
 
-        Write2MP4 (m_buf.getFront ());
+        Write2Disk (m_buf.getFront ());
         printf("Buffer size:%d\n",m_buf.getSize());
     }
 
@@ -1236,7 +1334,7 @@ int HikMultipleCameras::ThreadSoftwareTriggerFun()
       
         std::this_thread::sleep_until(m_timePoint);
         
-        for (uint i = 0; i < m_nDeviceNum; i++)
+        for (unsigned int  i = 0; i < m_nDeviceNum; i++)
         {
                 if (m_pcMyCameras[i])
                 {
@@ -1305,7 +1403,7 @@ int HikMultipleCameras::StopGrabbing()
     m_tCheckBuffThread->join();
     m_tSaveDiskThread->join();
 
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1382,7 +1480,7 @@ int HikMultipleCameras::SetTriggerModeOnOff(int triggerMode)
 int HikMultipleCameras::SetTriggerSoftwareMode()
 {
     int nRet = -1;
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1406,7 +1504,7 @@ int HikMultipleCameras::SetTriggerSoftwareMode()
 int  HikMultipleCameras::SetTriggerGigEAction() 
 {
     int nRet = -1;
-    for (uint i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1446,7 +1544,7 @@ int  HikMultipleCameras::SetTriggerGigEAction()
     m_actionCMDInfo.nDeviceKey = m_nDeviceKey;
     m_actionCMDInfo.nGroupKey = n_nGroupKey;
     m_actionCMDInfo.nGroupMask = m_nGroupMask;
-    m_actionCMDInfo.pBroadcastAddress = "255.255.255.255";
+    m_actionCMDInfo.pBroadcastAddress = "192.168.1.255";
     m_actionCMDInfo.nTimeOut = m_nTriggerTimeInterval;
     m_actionCMDInfo.bActionTimeEnable = 0;
 

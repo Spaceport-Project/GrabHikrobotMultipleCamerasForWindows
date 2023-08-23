@@ -1,4 +1,4 @@
-#include <pthread.h>
+//#include <pthread.h>
 #include <iostream>
 #include <vector>
 #include <condition_variable>
@@ -33,10 +33,10 @@ int main(int argc, char *argv[]) {
 
     signal (SIGINT, ctrlC);
     
-   // hikroCams->OpenDevices();
+    hikroCams->OpenDevices();
    
-    hikroCams->OpenDevicesInThreads();
-    hikroCams->JoinOpenDevicesInThreads();
+    // hikroCams->OpenDevicesInThreads();
+    // hikroCams->JoinOpenDevicesInThreads();
 
     hikroCams->OpenThreadsTimeStampControlReset();
     hikroCams->JoinThreadsTimeStampControlReset();
