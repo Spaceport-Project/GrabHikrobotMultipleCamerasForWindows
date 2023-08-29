@@ -93,8 +93,8 @@ static unsigned int __stdcall  WorkThread(void* pUser)
     stActionCmdInfo.nDeviceKey = g_DeviceKey;
     stActionCmdInfo.nGroupKey = g_GroupKey;
     stActionCmdInfo.nGroupMask = g_GroupMask;
-    stActionCmdInfo.pBroadcastAddress = "255.255.255.255";
-    stActionCmdInfo.nTimeOut = 100;
+    stActionCmdInfo.pBroadcastAddress = "192.168.88.255";
+    stActionCmdInfo.nTimeOut = 0;
    // stActionCmdInfo.nActionTime = 100;
     stActionCmdInfo.bActionTimeEnable = 0;
 

@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
     } 
     std::string cameraSettingsFile(argv[1]);
     ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>  > >  buf;
-    const int buff_size = 500;
+    const int buff_size = 5000;
     buf.setCapacity(buff_size);
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
@@ -33,33 +33,33 @@ int main(int argc, char *argv[]) {
 
     signal (SIGINT, ctrlC);
     
-    hikroCams->OpenDevices();
+    //hikroCams->OpenDevices();
    
-    // hikroCams->OpenDevicesInThreads();
-    // hikroCams->JoinOpenDevicesInThreads();
+    hikroCams->OpenDevicesInThreads();
+    hikroCams->JoinOpenDevicesInThreads();
 
     hikroCams->OpenThreadsTimeStampControlReset();
     hikroCams->JoinThreadsTimeStampControlReset();
 
-    if (MV_OK != hikroCams->ConfigureCameraSettings()) 
+    if (hikroCams->ConfigureCameraSettings() != MV_OK) 
     {
       return -1;
     }
-    if (MV_OK != hikroCams->SetTriggerModeOnOff(MV_TRIGGER_MODE_ON))
+    if (hikroCams->SetTriggerModeOnOff(MV_TRIGGER_MODE_ON) != MV_OK)
     {
       return -1;
     }
    
-    if (MV_OK != hikroCams->StartGrabbing()) 
+    if (hikroCams->StartGrabbing() != MV_OK) 
     {
       return -1;
     }
-    if (MV_OK != hikroCams->Save2BufferThenDisk()) 
+    if (hikroCams->SaveImages2Disk() != MV_OK) 
     {
       return -1;
     }
  
-    if (-1 == hikroCams->StopGrabbing())
+    if (hikroCams->StopGrabbing() == -1 )
     {
         return -1;
     } 

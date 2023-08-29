@@ -37,11 +37,6 @@ public:
 		//av_register_all();
 		format_context = NULL;
 
-
-
-
-
-		const int speed = 10 - 0;
 	}
 
 	/**
@@ -58,6 +53,7 @@ public:
 	 * true if it opens file successfully otherwise it returns false
 	 */
 	bool open(char* filename, bool isWriteMode) {
+		file_name = filename;
 		if (isWriteMode) {
 			return openForWrite(filename);
 		}
@@ -125,8 +121,8 @@ public:
 				return false;
 			}
 
-			enc_ctx_texture->height = 4320;
-			enc_ctx_texture->width = 7680;
+			enc_ctx_texture->height = 1200;
+			enc_ctx_texture->width = 1920;
 			AVRational aspect_ratio;
 			aspect_ratio.num = 16;
 			aspect_ratio.den = 9;
@@ -148,7 +144,7 @@ public:
 
 			avcodec_parameters_from_context(out_stream_texture->codecpar, enc_ctx_texture);
 
-			std::cout << " stream index for texture files: " << out_stream_texture->index << std::endl;
+			//std::cout <<"stream index for texture files: " << out_stream_texture->index << std::endl;
 
 		}
 
@@ -198,10 +194,6 @@ public:
 	 * @param timestamp
 	 * timestamp of the data in microseconds format. Make first frame's timestamp  0(zero)
 	 *
-	 * @param type
-	 * type of the content OBJ or PLY
-	 * const int OBJ_FORMAT = 0;
-	 * const int PLY_FORMAT = 1
 	 *
 	 * @return boolean
 	 * true if it encodes data and writes to the file, otherwise it returns false
@@ -222,7 +214,7 @@ public:
 
 
 
-	bool writeTextureToContainer(char* data, int length, long timestamp, int streamIndex)
+	bool writeImageToContainer(char* data, int length, long timestamp, int streamIndex)
 	{
 		bool result = false;
 		//AVPacket enc_pkt;
@@ -267,11 +259,7 @@ public:
 	 *
 	 *  @param length
 	 *  lenght of the decoded data
-	 *
-	 *  @param type
-	 * type of the content OBJ or PLY
-	 * const int OBJ_FORMAT = 0;
-	 * const int PLY_FORMAT = 1
+	
 	 *
 	 *  @return the index of the packet
 	 *  if index is zero then packet is 3D Mesh
@@ -279,7 +267,7 @@ public:
 	 *
 	 *  return -1 if it does not read packet successfully
 	 */
-	int read(char* &data, int &length, int type) {
+	int read(char* &data, int &length) {
 
 		if (!isWriteMode)
 		{
@@ -350,7 +338,7 @@ public:
 	int getTmpDataSize() {
 		return tmpDataSize;
 	}
-
+	const char *file_name;
 private:
 
 	AVFormatContext* format_context = NULL;
@@ -360,7 +348,7 @@ private:
 	AVCodecContext* enc_ctx_space_texture = NULL;
 	
 	bool isWriteMode;
-	AVStream* out_stream_texture;
+	AVStream *out_stream_texture;
 	char* tmpData = NULL;  //10MB
 	int tmpDataSize = 0;
 };

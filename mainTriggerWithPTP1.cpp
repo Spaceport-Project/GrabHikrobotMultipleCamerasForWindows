@@ -69,13 +69,14 @@ static  unsigned int __stdcall ActionCommandWorkThread(void* pUser)
     MV_ACTION_CMD_INFO stActionCmdInfo = {0};
     MV_ACTION_CMD_RESULT_LIST stActionCmdResults = {0};
 
+
     stActionCmdInfo.nDeviceKey = g_DeviceKey;
     stActionCmdInfo.nGroupKey = g_GroupKey;
     stActionCmdInfo.nGroupMask = g_GroupMask;
-    stActionCmdInfo.pBroadcastAddress = "255.255.255.255";
-    stActionCmdInfo.nTimeOut = 0;
-    stActionCmdInfo.bActionTimeEnable = 1;
-    stActionCmdInfo.nActionTime = 100;
+    stActionCmdInfo.pBroadcastAddress = "192.168.88.255";
+    stActionCmdInfo.nTimeOut = 100;
+    stActionCmdInfo.bActionTimeEnable = 0;
+   // stActionCmdInfo.nActionTime = 100;
 
     while(!g_bExit)
     {
@@ -86,7 +87,7 @@ static  unsigned int __stdcall ActionCommandWorkThread(void* pUser)
             printf("Issue Action Command fail! nRet [0x%x]\n", nRet);
             continue;
         }
-       // printf("NumResults = %d\r\n",stActionCmdResults.nNumResults);
+        printf("NumResults = %d\r\n",stActionCmdResults.nNumResults);
 
         MV_ACTION_CMD_RESULT* pResults = stActionCmdResults.pResults;
         for (unsigned int i = 0;i < stActionCmdResults.nNumResults;i++)

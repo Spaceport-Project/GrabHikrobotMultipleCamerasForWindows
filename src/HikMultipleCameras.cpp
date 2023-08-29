@@ -18,7 +18,11 @@
 
 
 #ifdef DEBUG
+#ifdef _MSC_VER 
+#define DEBUG_PRINT(...) printf_s(__VA_ARGS__)
+#else
 #define DEBUG_PRINT(...) printf(__VA_ARGS__)
+#endif
 #else
 #define DEBUG_PRINT(...) do {} while (0)
 #endif
@@ -75,6 +79,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
     , m_sTriggerSource("")
     , m_sCameraSettingsFile(cameraSettingsFile)
     , m_nTriggerTimeInterval(0)
+    , m_currentPairImagesInfo_Buff(nullptr)
    
 {
 	
@@ -82,8 +87,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
     memset(&m_actionCMDInfo, 0, sizeof(MV_ACTION_CMD_INFO));
     memset(&m_actionCMDResList, 0, sizeof(MV_ACTION_CMD_RESULT_LIST));
    
-
-
+   
     //EnumDevicesByIPAddress();
     EnumDevices();
 
@@ -92,25 +96,37 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
        
         m_bImagesOk.resize(m_nDeviceNum, false);
         m_bImagesCheck.resize(m_nDeviceNum, false);
+        m_bImagesReady.resize(m_nDeviceNum, true);
         m_params.resize(m_nDeviceNum, {0});
         m_stImagesInfo.resize(m_nDeviceNum, {0});
         m_nSaveImagesBufSize.resize(m_nDeviceNum, 0);
+        m_its.resize(m_nDeviceNum, 0);
         m_pairImagesInfo_Buff.resize(m_nDeviceNum, std::make_pair(MV_FRAME_OUT_INFO_EX{0}, nullptr));
-        m_mConsumeMutexes = std::vector<std::mutex>(m_nDeviceNum);
+        m_mProduceMutexes = std::vector<std::mutex>(m_nDeviceNum);
         m_mProduceMutexes = std::vector<std::mutex>(m_nDeviceNum);
         m_cDataReadyCon = condVector(m_nDeviceNum);
         
-        if (!container.open((char*)"test_hikrobot_jpgs.mp4", true)){
-            exit(0);
-        };
+         // if (!container.open((char*)"test_hikrobot_jpgs.mp4", true)){
+        //     exit(0);
+        // };
 
+
+        std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+        std::chrono::seconds sec = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch());
         for (unsigned int i = 0 ; i < m_nDeviceNum ; i++)
         {
             memset(&(m_stImagesInfo[i]), 0, sizeof(MV_FRAME_OUT_INFO_EX));
             m_pDataForSaveImages.push_back(nullptr);
             m_pSaveImagesBuf.push_back(nullptr);
             m_pcMyCameras.push_back(std::make_unique<HikCamera>());
+            // std::string fileNameTmp = "hikrobot_" + m_mapSerials[i] + "_" + std::to_string(sec.count()) + ".mp4";
+            // if (!m_Containers[i].open((char*)fileNameTmp.c_str(), true))
+                // exit(0);
+
         }
+       
+
+    
 
     } else 
     {
@@ -157,7 +173,7 @@ int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
         {
             {
              
-                std::unique_lock<std::mutex> lk(m_mConsumeMutexes[nCurCameraIndex]);
+                std::unique_lock<std::mutex> lk(m_mProduceMutexes[nCurCameraIndex]);
                 m_cDataReadyCon[nCurCameraIndex].wait(lk, [this, nCurCameraIndex] {
                     return m_bImagesOk[nCurCameraIndex];
 
@@ -209,8 +225,16 @@ int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
                 oldtimeStamp = timeStamp; 
                 oldmicroseconds = microseconds;
                 
-                sprintf(filepath, "Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[nCurCameraIndex].c_str(), stParam.nWidth, stParam.nHeight, m_stImagesInfo[nCurCameraIndex].nFrameNum);
-                FILE* fp = fopen(filepath, "wb");
+                #ifdef _MSC_VER 
+                sprintf_s(filepath, sizeof(filepath),"Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[nCurCameraIndex].c_str(), stParam.nWidth, stParam.nHeight, m_stImagesInfo[nCurCameraIndex].nFrameNum);
+                FILE* fp ;
+                fopen_s(&fp, filepath, "wb");
+                #else
+                sprintf(filepath,"Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[nCurCameraIndex].c_str(), stParam.nWidth, stParam.nHeight, m_stImagesInfo[nCurCameraIndex].nFrameNum);
+                FILE* fp = fopen( filepath, "wb");
+                #endif               
+
+                
                 if (fp == NULL)
                 {
                     printf("fopen failed\n");
@@ -218,8 +242,12 @@ int HikMultipleCameras::ThreadConsumeFun(int nCurCameraIndex)
                 }
                 fwrite(m_pDataForSaveImages[nCurCameraIndex].get(), 1, stParam.nImageLen, fp);
                 fclose(fp);
-                DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%lld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImagesInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
+                #ifdef _MSC_VER 
+                DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%lld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImagesInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+                #else
+                DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", nCurCameraIndex,m_stImagesInfo[nCurCameraIndex].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+                #endif
                 
             }
             
@@ -254,91 +282,6 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
             {
                 
                 {
-                    std::lock_guard<std::mutex> lk(m_mConsumeMutexes[nCurCameraIndex]);
-
-                    std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-                    std::chrono::microseconds ms = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
-                    long long int microseconds = ms.count();
-
-                    uint64_t timeStamp = (((uint64_t) stImageOut.stFrameInfo.nDevTimeStampHigh) << 32) + stImageOut.stFrameInfo.nDevTimeStampLow;
-                    uint64_t  timeDif = timeStamp - oldtimeStamp;
-                    uint64_t hostTimeStamp = stImageOut.stFrameInfo.nHostTimeStamp;
-                    uint64_t systemTimeDiff = microseconds - oldmicroseconds;
-                    oldtimeStamp = timeStamp; 
-                    oldmicroseconds = microseconds;
-                    
-                    DEBUG_PRINT("DevIndex[%d], Grab image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms], HostTimeStamp[%ld ms]\n", nCurCameraIndex, stImageOut.stFrameInfo.nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000, hostTimeStamp);
-
-                    if (m_pSaveImagesBuf[nCurCameraIndex] == nullptr  || stImageOut.stFrameInfo.nFrameLen > m_nSaveImagesBufSize[nCurCameraIndex])
-                    {
-                       
-                        m_pSaveImagesBuf[nCurCameraIndex].reset(new uint8_t[stImageOut.stFrameInfo.nFrameLen]);
-                        if (m_pSaveImagesBuf[nCurCameraIndex] == nullptr)
-                        {
-                            printf("Failed to allocate memory! Exiting\n");                            
-                            return -1;
-                        }
-                        m_nSaveImagesBufSize[nCurCameraIndex] = stImageOut.stFrameInfo.nFrameLen;
-                    }
-
-
-                    if (stImageOut.pBufAddr != NULL)
-                    {   
-    
-                        memcpy(m_pSaveImagesBuf[nCurCameraIndex].get(), stImageOut.pBufAddr, stImageOut.stFrameInfo.nFrameLen);
-                        memcpy(&(m_stImagesInfo[nCurCameraIndex]), &(stImageOut.stFrameInfo), sizeof(MV_FRAME_OUT_INFO_EX));                       
-                        m_bImagesOk[nCurCameraIndex] = true;
-                        nRet = m_pcMyCameras[nCurCameraIndex]->FreeImageBuffer(&stImageOut);
-                        if (MV_OK != nRet)
-                        {
-                            printf("cannot free buffer! \n");
-                            return nRet;
-                        }
-                     
-                    }
-                }
-                m_cDataReadyCon[nCurCameraIndex].notify_one();
-             
-            } else {
-
-                printf("Get Image Buffer fail! DevIndex[%d], nRet[%#x], \n", nCurCameraIndex, nRet);
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            }
-            
-            if (m_bExit) m_bStartGrabbing = false;
-            FPS_CALC ("Image Grabbing FPS:", nCurCameraIndex);
-        }
-
-    }
-    if (nRet == -1) 
-    {
-        printf("There is something wrong with the device opened in ThreadGrabWithGetImageBufferFun! DevIndex[%d] \n", nCurCameraIndex);
-    }
-    return nRet;
-}
-
-
-int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
-{
-    int nRet = -1;
-    if (m_pcMyCameras[nCurCameraIndex])
-    {
-        MV_FRAME_OUT stImageOut = {0};
-        memset(&stImageOut, 0, sizeof(MV_FRAME_OUT));
-        uint64_t oldtimeStamp = 0;
-        long long int oldmicroseconds = 0;
-        while(m_bStartGrabbing)
-        {
-            
-            std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();           
-            nRet = m_pcMyCameras[nCurCameraIndex]->GetImageBuffer(&stImageOut, 1000);
-            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %ld[ms]", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
-            
-            if (nRet == MV_OK)
-            {
-                
-                {
                     std::lock_guard<std::mutex> lk(m_mProduceMutexes[nCurCameraIndex]);
 
                     std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
@@ -351,9 +294,11 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
                     uint64_t systemTimeDiff = microseconds - oldmicroseconds;
                     oldtimeStamp = timeStamp; 
                     oldmicroseconds = microseconds;
-                    
+                    #ifdef _MSC_VER 
+                    DEBUG_PRINT("DevIndex[%d], Grab image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%lld ms], SystemTimeDiff[%.3f ms], HostTimeStamp[%lld ms]\n", nCurCameraIndex, stImageOut.stFrameInfo.nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000, hostTimeStamp);
+                    #else
                     DEBUG_PRINT("DevIndex[%d], Grab image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms], HostTimeStamp[%ld ms]\n", nCurCameraIndex, stImageOut.stFrameInfo.nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000, hostTimeStamp);
-
+                    #endif
                     if (m_pSaveImagesBuf[nCurCameraIndex] == nullptr  || stImageOut.stFrameInfo.nFrameLen > m_nSaveImagesBufSize[nCurCameraIndex])
                     {
                        
@@ -373,7 +318,6 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
                         memcpy(m_pSaveImagesBuf[nCurCameraIndex].get(), stImageOut.pBufAddr, stImageOut.stFrameInfo.nFrameLen);
                         memcpy(&(m_stImagesInfo[nCurCameraIndex]), &(stImageOut.stFrameInfo), sizeof(MV_FRAME_OUT_INFO_EX));                       
                         m_bImagesOk[nCurCameraIndex] = true;
-                        
                         nRet = m_pcMyCameras[nCurCameraIndex]->FreeImageBuffer(&stImageOut);
                         if (MV_OK != nRet)
                         {
@@ -390,6 +334,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
                 printf("Get Image Buffer fail! DevIndex[%d], nRet[%#x], \n", nCurCameraIndex, nRet);
                 std::this_thread::sleep_for(std::chrono::milliseconds(5));
             }
+            
             if (m_bExit) m_bStartGrabbing = false;
             FPS_CALC ("Image Grabbing FPS:", nCurCameraIndex);
         }
@@ -401,6 +346,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun2(int nCurCameraIndex)
     }
     return nRet;
 }
+
 
 
 
@@ -432,14 +378,18 @@ int HikMultipleCameras::ThreadGrabWithGetOneFrameFun(int nCurCameraIndex)
             std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
             nRet = m_pcMyCameras[nCurCameraIndex]->GetOneFrame(m_pSaveImagesBuf[nCurCameraIndex].get(), m_params[nCurCameraIndex].nCurValue, &stImageOut, 1000);
             std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %ld[ms]", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
+            #ifdef _MSC_VER 
+            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %lld[ms]\n", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
+            #else
+            DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %ld[ms]\n", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
+            #endif
 
             if (nRet == MV_OK)
             {
                 
                 
                 {
-                    std::lock_guard<std::mutex> lk(m_mConsumeMutexes[nCurCameraIndex]);
+                    std::lock_guard<std::mutex> lk(m_mProduceMutexes[nCurCameraIndex]);
                     memcpy(&(m_stImagesInfo[nCurCameraIndex]), &(stImageOut), sizeof(MV_FRAME_OUT_INFO_EX)); 
                     m_bImagesOk[nCurCameraIndex] = true;
                     if (m_pSaveImagesBuf[nCurCameraIndex]) {
@@ -475,8 +425,7 @@ void HikMultipleCameras::EnumDevicesByIPAddress()
     memset(&m_stDevList, 0, sizeof(MV_CC_DEVICE_INFO_LIST));
 
    
-    char nNetExport[128];
-    char nCurrentIp[128];
+   
     unsigned int nIp1 = 172, nIp2 = 18, nIp3 = 166, nIp4 = 45, nIp;
     unsigned int n_ExIp1 = 172, n_ExIp2 = 18, n_ExIp3 = 166, n_ExIp4 = 76, n_ExIp;
     int k = 0;
@@ -533,35 +482,6 @@ void HikMultipleCameras::EnumDevicesByIPAddress()
 
 
 
-        // if (pDeviceInfo->nTLayerType == MV_GIGE_DEVICE)
-        // {
-        //     int nIp1 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0xff000000) >> 24);
-        //     int nIp2 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x00ff0000) >> 16);
-        //     int nIp3 = ((pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x0000ff00) >> 8);
-        //     int nIp4 = (pDeviceInfo->SpecialInfo.stGigEInfo.nCurrentIp & 0x000000ff);
-        //     // Print the IP address and user defined name of the current camera
-        //     DEBUG_PRINT("Device Model Name: %s\n", pDeviceInfo->SpecialInfo.stGigEInfo.chModelName);
-        //     DEBUG_PRINT("CurrentIp: %d.%d.%d.%d\n" , nIp1, nIp2, nIp3, nIp4);
-        //   //  printf("UserDefinedName: %s\n\n" , pDeviceInfo->SpecialInfo.stGigEInfo.chUserDefinedName);
-        //     DEBUG_PRINT("SerialNumber: %s\n\n", pDeviceInfo->SpecialInfo.stGigEInfo.chSerialNumber);
-        //     m_mapSerials.insert(std::make_pair(i , (char *)pDeviceInfo->SpecialInfo.stGigEInfo.chSerialNumber));
-        //     m_mapModels.insert(std::make_pair(i, (char *) pDeviceInfo->SpecialInfo.stGigEInfo.chModelName));
-            
-        // }
-        // else if (pDeviceInfo->nTLayerType == MV_USB_DEVICE)
-        // {
-            
-        //     DEBUG_PRINT("Device Model Name: %s\n", pDeviceInfo->SpecialInfo.stUsb3VInfo.chModelName);
-        //     DEBUG_PRINT("UserDefinedName: %s\n\n", pDeviceInfo->SpecialInfo.stUsb3VInfo.chUserDefinedName);
-        //     m_mapSerials.insert(std::make_pair( i, (char *)pDeviceInfo->SpecialInfo.stUsb3VInfo.chSerialNumber));
-        //     m_mapModels.insert(std::make_pair(i, (char *) pDeviceInfo->SpecialInfo.stUsb3VInfo.chModelName));
-
-        // }
-        // else {
-        //     printf("Camera not supported!\n");
-        // }    
-    
-        
        
     }
 
@@ -821,6 +741,7 @@ int HikMultipleCameras::ConfigureCameraSettings()
     boost::property_tree::read_json(file, pt);
     m_sTriggerSource = pt.get<std::string>("TriggerSource");
     m_nTriggerTimeInterval = pt.get<int>("TriggerTimeInterval");
+    m_pBroadcastAddress = pt.get<std::string>("BroadcastAddress");
     int height = pt.get<int>("Height");
     int width = pt.get<int>("Width");
     int exposureAuto = pt.get<int>("ExposureAuto");
@@ -1021,7 +942,7 @@ int HikMultipleCameras::Save2BufferThenDisk()
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(5));
 
-    for (int i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1032,6 +953,8 @@ int HikMultipleCameras::Save2BufferThenDisk()
                 printf("Create Save Buffer thread fail! DevIndex[%d]\r\n", i);
                 return -1;
             }
+
+            m_tWriteMP4Threads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadWrite2MP4Fun, this, i)));
 
         }
     }
@@ -1051,7 +974,7 @@ int HikMultipleCameras::ThreadCheckBufferFun()
     {
 
         std::unique_lock<std::mutex> lk(m_mGrabMutex);
-        m_cDataReadySingleCon.wait(lk, [this] {
+        m_cDataReadySingleCon1.wait(lk, [this] {
             bool sum=true;
             int i = 0;
             for (; i < m_bImagesCheck.size(); i++){
@@ -1118,7 +1041,7 @@ int HikMultipleCameras::ThreadSave2BufferFun(int nCurCameraIndex)
               
             }
 
-            m_cDataReadySingleCon.notify_one();
+            m_cDataReadySingleCon1.notify_one();
 
             
 
@@ -1132,18 +1055,75 @@ int HikMultipleCameras::ThreadSave2BufferFun(int nCurCameraIndex)
 }
 
 int HikMultipleCameras::ThreadSave2DiskFun(){
+
     while (true)
     {
-        if (m_bExit)   break;
-        Write2Disk (m_buf.getFront ());
+        if (m_bExit) break;
+        {
+            std::unique_lock<std::mutex> lk(m_mSaveMutex);
+            m_cDataReadySingleCon2.wait(lk, [this] {
+                bool sum = true;
+                unsigned int i = 0;
+                for (; i < m_bImagesReady.size(); i++){
+                    
+                    sum = sum && m_bImagesReady[i];
+
+                }
+                if (i == 0 ) return false;
+                else return sum;
+
+            });
+            for (unsigned int i =0 ; i < m_bImagesCheck.size(); i++)
+                m_bImagesReady[i]= false;
+
+            m_currentPairImagesInfo_Buff = &(m_buf.getFront());
+            
+        }
+        
+
     }
+
+    while (!m_buf.isEmpty ()) 
+    {
+        {
+            std::unique_lock<std::mutex> lk(m_mSaveMutex);
+            m_cDataReadySingleCon2.wait(lk, [this] {
+                bool sum = true;
+                unsigned int i = 0;
+                for (; i < m_bImagesReady.size(); i++){
+                    
+                    sum = sum && m_bImagesReady[i];
+
+                }
+                if (i == 0 ) return false;
+                else return sum;
+
+            });
+            for (unsigned int i =0 ; i < m_bImagesCheck.size(); i++)
+                m_bImagesReady[i]= false;
+
+            m_currentPairImagesInfo_Buff = &(m_buf.getFront());
+        
+        }
+
+       printf("Buffer size:%d\n",m_buf.getSize());  
+    }
+
+   
+    
+    
+    // while (true)
+    // {
+    //     if (m_bExit)   break;
+    //     Write2MP4(m_buf.getFront ());
+    // }
 
       
-    while (!m_buf.isEmpty ()) {
+    // while (!m_buf.isEmpty ()) {
 
-        Write2Disk (m_buf.getFront ());
-        printf("Buffer size:%d\n",m_buf.getSize());
-    }
+    //     Write2MP4(m_buf.getFront ());
+    //     printf("Buffer size:%d\n",m_buf.getSize());
+    // }
 
     return 0;
 }
@@ -1182,9 +1162,15 @@ void HikMultipleCameras::Write2Disk( const std::vector<std::pair<MV_FRAME_OUT_IN
 
         uint64_t timeStamp = (((uint64_t)  buff_item[i].first.nDevTimeStampHigh) << 32) +  buff_item[i].first.nDevTimeStampLow;
 
-        
+        #ifdef _MSC_VER 
+        sprintf_s(filepath, sizeof(filepath), "Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[i].c_str(), stParam.nWidth, stParam.nHeight,  buff_item[i].first.nFrameNum);
+        FILE* fp;
+        fopen_s(&fp, filepath, "wb");
+        #else
         sprintf(filepath, "Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[i].c_str(), stParam.nWidth, stParam.nHeight,  buff_item[i].first.nFrameNum);
         FILE* fp = fopen(filepath, "wb");
+        #endif
+      
         if (fp == NULL)
         {
             printf("fopen failed\n");
@@ -1192,7 +1178,6 @@ void HikMultipleCameras::Write2Disk( const std::vector<std::pair<MV_FRAME_OUT_IN
         }
         fwrite(pDataForSaveImage, 1, stParam.nImageLen, fp);
         fclose(fp);
-        //delete pDataForSaveImage;
        // DEBUG_PRINT("%d. Camera, Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n", i,m_stImagesInfo[i].nFrameNum, double(timeStamp)/1000000, float(timeDif)/1000000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
 
@@ -1201,6 +1186,34 @@ void HikMultipleCameras::Write2Disk( const std::vector<std::pair<MV_FRAME_OUT_IN
     }
     delete pDataForSaveImage;
 
+
+}
+
+
+
+int HikMultipleCameras::ThreadWrite2MP4Fun( int nCurCameraIndex){
+
+    while (true)
+    {
+        if (m_currentPairImagesInfo_Buff == nullptr)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            continue;
+        }
+        int arraySize = m_currentPairImagesInfo_Buff->at(nCurCameraIndex).first.nFrameLen;
+        if (!m_Containers[nCurCameraIndex].writeImageToContainer((char*) m_currentPairImagesInfo_Buff->at(nCurCameraIndex).second.get(), arraySize, m_its[nCurCameraIndex]*100000, STREAM_INDEX_IMG)) 
+        {
+            printf("Cannot write texture to container\n");
+            return -1 ;
+        }
+        m_its[nCurCameraIndex]++;
+        m_bImagesReady[nCurCameraIndex] = true;
+        m_cDataReadySingleCon2.notify_one();
+        if (m_bExit) break;
+       
+    }
+   
+    return MV_OK;
 
 }
 
@@ -1240,7 +1253,7 @@ void HikMultipleCameras::Write2MP4( const std::vector<std::pair<MV_FRAME_OUT_INF
         //     continue;
         // }
         int arraySize = buff_item[i].first.nFrameLen;
-        if (!container.writeTextureToContainer((char*) buff_item[i].second.get(), arraySize, m_it*100000, STREAM_INDEX_IMG)) 
+        if (!m_Container.writeImageToContainer((char*) buff_item[i].second.get(), arraySize, m_it*100000, STREAM_INDEX_IMG)) 
         {
             printf("Cannot write texture to container\n");
             return ;
@@ -1267,7 +1280,7 @@ int HikMultipleCameras::StartGrabbing()
    
     int nRet = -1;
 
-    for (int i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {
@@ -1290,7 +1303,7 @@ int HikMultipleCameras::StartGrabbing()
             }
 
            
-            m_tGrabThreads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadGrabWithGetImageBufferFun2, this, i)));
+            m_tGrabThreads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadGrabWithGetImageBufferFun, this, i)));
            
             if (m_tGrabThreads[i] == nullptr)
             {
@@ -1400,8 +1413,9 @@ int HikMultipleCameras::StopGrabbing()
     int nRet = -1, nRetOne;
     bool bRet = false;
    // m_tSaveBufThread->join();
-    m_tCheckBuffThread->join();
-    m_tSaveDiskThread->join();
+
+    // m_tCheckBuffThread->join();
+    // m_tSaveDiskThread->join();
 
     for (unsigned int  i = 0; i < m_nDeviceNum; i++)
     {
@@ -1409,10 +1423,10 @@ int HikMultipleCameras::StopGrabbing()
         {
             
             m_tGrabThreads[i]->join();
-           // m_tConsumeThreads[i]->join();
-            m_tSaveBufThreads[i]->join();
-           
-           
+            m_tConsumeThreads[i]->join();
+            // m_tSaveBufThreads[i]->join();
+            // m_tWriteMP4Threads[i]->join();
+            
             nRet = m_pcMyCameras[i]->StopGrabbing();
             if (MV_OK != nRet)
             {
@@ -1424,11 +1438,12 @@ int HikMultipleCameras::StopGrabbing()
                 printf("Stop grabbing success! DevIndex[%d], nRet[%#x]\r\n", i, nRet);
             }
 
-          
+          //  m_Containers[i].close();
+          //  m_Containers[i].openForRead((char*)m_Containers[i].file_name);
+          //  m_tReadMp4Threads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadReadMp4Fun, this, i)));
         }
         
     }
-    container.close();
 
 
    
@@ -1447,6 +1462,74 @@ int HikMultipleCameras::StopGrabbing()
    
 
 }
+
+int HikMultipleCameras::ThreadReadMp4Fun(int nCurCameraIndex ) 
+{
+    int length;
+    char *data;
+    unsigned char * pDataForSaveImage = NULL;
+
+    while (true) 
+    {
+
+        
+        int streamIndex = m_Containers[nCurCameraIndex].read(data, length);
+        if (streamIndex == -1) 
+        {
+            printf("Cannot read data from Mp4 Or End of file, DevIndex[%d]\n", nCurCameraIndex);
+            break;
+        }
+        // if ( !pDataForSaveImage) 
+        //         pDataForSaveImage = (unsigned char*)malloc(m_stImagesInfo[i].nWidth * m_stImagesInfo[i].nHeight * 4 + 2048);
+        // MV_SAVE_IMAGE_PARAM_EX stParam;
+        // memset(&stParam, 0, sizeof(MV_SAVE_IMAGE_PARAM_EX));
+
+        // stParam.enImageType = MV_Image_Jpeg; 
+        // stParam.enPixelType =  buff_item[i].first.enPixelType; 
+        // stParam.nWidth = buff_item[i].first.nWidth;       
+        // stParam.nHeight = buff_item[i].first.nHeight;       
+        // stParam.nDataLen = length;
+        // stParam.pData = (unsigned char*)data;
+        // stParam.pImageBuffer =  pDataForSaveImage;
+        // stParam.nBufferSize = buff_item[i].first.nWidth * buff_item[i].first.nHeight * 4 + 2048;;  
+        // stParam.nJpgQuality = 99;  
+        // int nRet =  m_pcMyCameras[i]->SaveImage(&stParam);
+
+        // if(nRet != MV_OK)
+        // {
+        //     printf("Failed in MV_CC_SaveImage,nRet[%x]\n", nRet);
+        //     // std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        //     continue;
+        // }
+        // char filepath[256];
+        
+        
+
+
+        // #ifdef _MSC_VER 
+        // sprintf_s(filepath, sizeof(filepath), "Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[i].c_str(), stParam.nWidth, stParam.nHeight,  buff_item[i].first.nFrameNum);
+        // FILE* fp;
+        // fopen_s(&fp, filepath, "wb");
+        // #else
+        // sprintf(filepath, "Image_%s_w%d_h%d_fn%03d.jpg", m_mapSerials[i].c_str(), stParam.nWidth, stParam.nHeight,  buff_item[i].first.nFrameNum);
+        // FILE* fp = fopen(filepath, "wb");
+        // #endif
+        
+        // if (fp == NULL)
+        // {
+        //     printf("fopen failed\n");
+        //     break;
+        // }
+        // fwrite(pDataForSaveImage, 1, stParam.nImageLen, fp);
+        // fclose(fp);
+
+    }   
+
+
+    return 0;
+
+}
+
 
 // Set trigger mode on or off
 int HikMultipleCameras::SetTriggerModeOnOff(int triggerMode)
@@ -1544,7 +1627,7 @@ int  HikMultipleCameras::SetTriggerGigEAction()
     m_actionCMDInfo.nDeviceKey = m_nDeviceKey;
     m_actionCMDInfo.nGroupKey = n_nGroupKey;
     m_actionCMDInfo.nGroupMask = m_nGroupMask;
-    m_actionCMDInfo.pBroadcastAddress = "192.168.1.255";
+    m_actionCMDInfo.pBroadcastAddress = m_pBroadcastAddress.c_str();
     m_actionCMDInfo.nTimeOut = m_nTriggerTimeInterval;
     m_actionCMDInfo.bActionTimeEnable = 0;
 
@@ -1565,7 +1648,7 @@ int HikMultipleCameras::SaveImages2Disk()
     }
 
     
-    for (int i = 0; i < m_nDeviceNum; i++)
+    for (unsigned int i = 0; i < m_nDeviceNum; i++)
     {
         if (m_pcMyCameras[i])
         {

@@ -34,9 +34,10 @@ private:
     MV_ACTION_CMD_INFO      m_actionCMDInfo;
     MV_ACTION_CMD_RESULT_LIST m_actionCMDResList;
     unsigned int            m_nDeviceNum;
-    unsigned int                     m_nDeviceKey ;
-    unsigned int                    n_nGroupKey ;
-    unsigned int                    m_nGroupMask;
+    unsigned int            m_nDeviceKey ;
+    unsigned int            n_nGroupKey ;
+    unsigned int            m_nGroupMask;
+    std::string             m_pBroadcastAddress;
     std::string             m_sTriggerSource;
     const std::string&      m_sCameraSettingsFile;
     bool                    m_bOpenDevice;
@@ -44,12 +45,14 @@ private:
     bool                    m_bStartConsuming;
     bool                    m_entered;
     std::chrono::system_clock::time_point m_timePoint;
-    int                     m_nTriggerMode;
-    int                     m_nTriggerSource;
-    int                     m_nTriggerTimeInterval;
-    int                     m_it = 0;
+    unsigned int            m_nTriggerMode;
+    unsigned int            m_nTriggerSource;
+    unsigned int            m_nTriggerTimeInterval;
+    unsigned int            m_it = 0;
+    std::vector<unsigned int> m_its;
     std::vector<bool>       m_bImagesOk;
     std::vector<bool>       m_bImagesCheck;
+    std::vector<bool>       m_bImagesReady;
     threadVector            m_tGrabThreads;
     threadVector            m_tConsumeThreads;
     thread                  m_tTriggerThread;
@@ -59,25 +62,27 @@ private:
     threadVector            m_tOpenDevicesThreads;
     threadVector            m_tCloseDevicesThreads;
     threadVector            m_tResetTimestampThreads;
-    Container               container;
+    threadVector            m_tWriteMP4Threads;
+    threadVector            m_tReadMp4Threads;
+    Container               m_Container;
+    std::vector<Container>  m_Containers;
 
     byteArrayVector         m_pSaveImagesBuf;
     byteArrayVector         m_pDataForSaveImages;
-    std::vector<unsigned int>       m_nSaveImagesBufSize;
+    std::vector<unsigned int> m_nSaveImagesBufSize;
     frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
     ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
     std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
+    const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> *m_currentPairImagesInfo_Buff;
     std::mutex              m_mGrabMutex;
+    std::mutex              m_mSaveMutex;
     std::mutex              m_mOpenDevMutex;
-    std::vector<std::mutex> m_mConsumeMutexes;
+   // std::vector<std::mutex> m_mProduceMutexes;
     std::vector<std::mutex> m_mProduceMutexes;
     condVector              m_cDataReadyCon;
-    std::condition_variable m_cDataReadySingleCon;
-
-
-   
-    int                     m_nZoomInIndex;  
+    std::condition_variable m_cDataReadySingleCon1;
+    std::condition_variable m_cDataReadySingleCon2;
 
     std::map<int, std::string> m_mapSerials; 
     std::map<int, std::string> m_mapModels; 
@@ -107,7 +112,8 @@ public:
     void JoinThreadsTimeStampControlReset();
     void OpenThreadsTimeStampControlReset();
     void TimeStampControlReset();
-
+    
+    int ThreadWrite2MP4Fun(int nCurCameraIndex);
     int ThreadSave2BufferFun(int nCurCameraIndex);
     int ThreadSave2DiskFun();
     int ThreadCheckBufferFun();
@@ -120,6 +126,7 @@ public:
     int ThreadTimeStampControlResetFun(int nCurCameraIndex);
     int ThreadOpenDevicesFun(int nCurCameraIndex);
     int ThreadCloseDevicesFun(int nCurCameraIndex);
+    int ThreadReadMp4Fun(int nCurCameraIndex);
 
 private:
    

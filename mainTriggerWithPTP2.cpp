@@ -240,7 +240,7 @@ static unsigned int __stdcall SaveImagesWorkThread (void* pUser)
                 }
                 fwrite(m_pDataForSaveImage, 1, stParam.nImageLen, fp);
                 fclose(fp);
-                printf("Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%ld ms], SystemTimeDiff[%.3f ms]\n",m_stImageInfo.nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
+                printf("Save image succeeded, nFrameNum[%d], DeviceTimeStamp[%.3f ms], TimeDiff[%.3f ms], SystemTimeStamp[%lld ms], SystemTimeDiff[%.3f ms]\n",m_stImageInfo.nFrameNum, double(timeStamp)/100000, float(timeDif)/100000,  uint64_t(round(double(microseconds)/1000)), double(systemTimeDiff)/1000);
 
                 
             }
