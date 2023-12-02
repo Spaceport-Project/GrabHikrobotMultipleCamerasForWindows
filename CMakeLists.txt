@@ -2,10 +2,10 @@ cmake_minimum_required(VERSION 3.5)
 
 project(GrabMultiHikrobotCameras VERSION 0.1 LANGUAGES C CXX)
 
-if (CMAKE_BUILD_TYPE)
-    unset(CMAKE_BUILD_TYPE CACHE)
-endif()
-set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
+# if (CMAKE_BUILD_TYPE)
+#     unset(CMAKE_BUILD_TYPE CACHE)
+# endif()
+# set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
 message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -24,14 +24,14 @@ set(PROJECT_SOURCES
 
 # Hikrobot Camera
 #link_directories(/opt/MVS/lib/64)
-link_directories("C:/Program Files (x86)/MVS/Development/Libraries/win64" "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/lib" )
+link_directories("C:/Program Files (x86)/MVS/Development/Libraries/win64"  "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/lib" )
 SET(PROJECT_INCLUDE_DIRECTORIES ${PROJECT_INCLUDE_DIRECTORIES} "C:/Program Files (x86)/MVS/Development/Includes")
 SET(PROJECT_SOURCES ${PROJECT_SOURCES}
     "C:/Program Files (x86)/MVS/Development/Includes/MvCameraControl.h"
 )
 SET(PROJECT_LIBS  MvCameraControl)
-set (Boost_INCLUDE_DIRS "C:/boost/include/boost-1_83")
-set (ffmpeg_INCLUDE_DIRS "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/include")
+set (Boost_INCLUDE_DIRS "C:/boost/include")
+set (ffmpeg_INCLUDE_DIRS  "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/include")
 set(GrabMultiHikCams GrabMultiHikCams_${CMAKE_BUILD_TYPE})
 add_executable(${GrabMultiHikCams}  ${PROJECT_SOURCES})
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -64,10 +64,14 @@ add_executable(TriggerWithPTP2  mainTriggerWithPTP2.cpp)
 target_include_directories(TriggerWithPTP2 PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(TriggerWithPTP2 PRIVATE ${PROJECT_LIBS})
 
-# add_executable(SetIpCameras  mainSetIpCameras.cpp src/HikCamera.cpp)
-# target_include_directories(SetIpCameras PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
-# target_link_libraries(SetIpCameras PRIVATE ${PROJECT_LIBS})
+add_executable(SetIpCameras  mainSetIpCameras.cpp src/HikCamera.cpp)
+target_include_directories(SetIpCameras PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(SetIpCameras PRIVATE ${PROJECT_LIBS})
 
 add_executable(ConnectViaIPAddress  mainConnectViaIPAddress.cpp src/HikCamera.cpp)
 target_include_directories(ConnectViaIPAddress PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(ConnectViaIPAddress PRIVATE ${PROJECT_LIBS})
+
+add_executable(ReadMp4Write2Disk  mainReadMp4Write2Disk.cpp src/HikCamera.cpp)
+target_include_directories(ReadMp4Write2Disk PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${ffmpeg_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include )
+target_link_libraries(ReadMp4Write2Disk PRIVATE ${PROJECT_LIBS} avformat avcodec swscale avutil)

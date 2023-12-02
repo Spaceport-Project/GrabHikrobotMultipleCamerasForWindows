@@ -51,7 +51,6 @@ int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo )
     {
         return MV_E_PARAMETER;
     }
-  //  std::cout<<"step 0.5"<<std::endl;
 
     if (m_hDevHandle)
     {
@@ -60,20 +59,17 @@ int HikCamera::Open(MV_CC_DEVICE_INFO* pstDeviceInfo )
 
 
     int nRet  = MV_CC_CreateHandle(&m_hDevHandle, pstDeviceInfo);
-   // std::cout<<"Create Handle nRet:"<<nRet<<std::endl;
     if (MV_OK != nRet)
     {
         return nRet;
     }
 
-    //std::cout<<"step 1"<<std::endl;
-     nRet = MV_CC_OpenDevice(m_hDevHandle);
+    nRet = MV_CC_OpenDevice(m_hDevHandle);
     if (MV_OK != nRet)
     {
         MV_CC_DestroyHandle(m_hDevHandle);
         m_hDevHandle = MV_NULL;
     }
-  //  std::cout<<"step 2"<<std::endl;
 
 	memcpy(&m_stDeviceInfo, pstDeviceInfo, sizeof(MV_CC_DEVICE_INFO));
 

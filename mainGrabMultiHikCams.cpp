@@ -1,10 +1,13 @@
 //#include <pthread.h>
 #include <iostream>
 #include <vector>
+#include <cstdint>
 #include <condition_variable>
 #include <signal.h>
 #include "HikMultipleCameras.h"
 #include "CircularBuffer.h"
+
+
 
 bool HikMultipleCameras::m_bExit = false;
 
@@ -33,7 +36,7 @@ int main(int argc, char *argv[]) {
 
     signal (SIGINT, ctrlC);
     
-    //hikroCams->OpenDevices();
+   // hikroCams->OpenDevices();
    
     hikroCams->OpenDevicesInThreads();
     hikroCams->JoinOpenDevicesInThreads();
@@ -54,21 +57,28 @@ int main(int argc, char *argv[]) {
     {
       return -1;
     }
-    if (hikroCams->SaveImages2Disk() != MV_OK) 
+    if (hikroCams->Save2BufferThenDisk() != MV_OK) 
     {
       return -1;
     }
- 
+
+   
+     
     if (hikroCams->StopGrabbing() == -1 )
     {
         return -1;
     } 
-
+    // if (hikroCams->ReadMp4Write2DiskAsJpgInThreads() != MV_OK)
+    // {
+    //   return -1;
+    // }
+    // hikroCams->ReadMp4Write2DiskAsJpgInThreads();
+    // hikroCams->JoinReadMp4Write2DiskAsJpgInThreads();
 
     // hikroCams->CloseDevices();
     hikroCams->CloseDevicesInThreads();
     hikroCams->JoinCloseDevicesInThreads();
-
+    
 
    
 

@@ -2,16 +2,19 @@
 #include <string.h>
 #include <io.h>
 #include <stdlib.h>
-#include <pthread.h>
+//#include <pthread.h>
 #include <vector>
 #include <memory>
-#include "HikCamera.h"
+#include <Windows.h>
+#include <crtdefs.h>
+#include <process.h>
 
+#include "HikCamera.h"
 #include "MvCameraControl.h"
 // Wait for the user to press Enter to stop grabbing or end the program
 void PressEnterToExit(void)
 {
-    int c;
+    // unsigned int c;
     fprintf( stderr, "\nPress enter to exit.\n");
     while( getchar() != '\n');
 }
@@ -82,7 +85,7 @@ int main()
         }
         if (stDeviceList.nDeviceNum > 0)
         {
-            for (int i = 0; i < stDeviceList.nDeviceNum; i++)
+            for (unsigned int i = 0; i < stDeviceList.nDeviceNum; i++)
             {
                 printf("[device %d]:\n", i);
                 MV_CC_DEVICE_INFO* pDeviceInfo = stDeviceList.pDeviceInfo[i];
@@ -98,7 +101,7 @@ int main()
             printf("Find No Devices!\n");
             break;
         }
-        for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+        for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
         {
             m_pcMyCameras.push_back(std::make_unique<HikCamera>());
             m_pcMyCameras[i]->CreateHandle(stDeviceList.pDeviceInfo[i]);
@@ -120,19 +123,19 @@ int main()
         // }
         // Enter the IP address, subnet mask, and default gateway
         printf("Please input starting ip address of first device, example: 192.168.1.100\n");
-        int ch;
+        // int ch;
         if ( 5 != scanf("%d.%d.%d.%d%c", &nIPCams[0], &nIPCams[1], &nIPCams[2], &nIPCams[3], &c) )
         {
             printf("input count error\n");
             (handle);
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                 m_pcMyCameras[i]->Close();
             break;
         }
         if (!ConvertToHexIp(&nIpAddr, nIPCams, c))
         {
             printf("input IpAddr format is not correct\n");
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                 m_pcMyCameras[i]->Close();
             break;
         }
@@ -140,14 +143,14 @@ int main()
         if ( 5 != scanf("%d.%d.%d.%d%c", &nIP[0], &nIP[1], &nIP[2], &nIP[3], &c) )
         {
             printf("input count error\n");
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                 m_pcMyCameras[i]->Close();
             break;
         }
         if (!ConvertToHexIp(&nNetWorkMask, nIP, c))
         {
             printf("input NetMask format is not correct\n");
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                     m_pcMyCameras[i]->Close();
             break;
         }
@@ -155,20 +158,20 @@ int main()
         if ( 5 != scanf("%d.%d.%d.%d%c", &nIP[0], &nIP[1], &nIP[2], &nIP[3], &c) )
         {
             printf("input count error\n");
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                 m_pcMyCameras[i]->Close();
             break;
         }
         if (!ConvertToHexIp(&nDefaultGateway, nIP, c))
         {
             printf("input DefaultWay format is not correct\n");
-            for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+            for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                     m_pcMyCameras[i]->Close();
 
             break;
         }
         // Set the ForceIP
-        for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+        for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
         {
             nRet = m_pcMyCameras[i]->ForceIp(nIpAddr, nNetWorkMask, nDefaultGateway);
             if (MV_OK != nRet)
@@ -180,7 +183,7 @@ int main()
             if (!ConvertToHexIp(&nIpAddr, nIPCams))
             {
                 printf("input IpAddr format is not correct\n");
-                for (int j = 0 ; j < stDeviceList.nDeviceNum ; ++j) 
+                for (unsigned int j = 0 ; j < stDeviceList.nDeviceNum ; ++j) 
                     m_pcMyCameras[j]->Close();
                 break;
             }
@@ -196,7 +199,7 @@ int main()
         printf("Set IPs succeed\n");
         PressEnterToExit();
         // Destroy the handle
-        for (int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
+        for (unsigned int i = 0 ; i < stDeviceList.nDeviceNum ; ++i) 
                     m_pcMyCameras[i]->Close();
       
     } while (0);

@@ -35,9 +35,9 @@
             "name": "(gdb) Grab Multi Hikrobot Cams",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug",
+            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug.exe",
             "args": [
-                "/home/hamit/Softwares/GrabHikrobotMultipleCameras/CameraSettings.json"
+                "/home/spaceport/Softwares/GrabHikrobotMultipleCamerasForWindows/CameraSettings.json"
              ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
@@ -86,23 +86,16 @@
             "name": "Grab Hikrobot Cams",
             "type": "cppdbg",
             "request": "launch",
-             "miDebuggerPath": "",
+             "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
             // "program": "${command:cmake.launchTargetPath}",
-            "program": "${workspaceFolder}/build/Debug/GrabMultiHikCams_Debug",
+            "program": "${workspaceFolder}/build/Debug/GrabMultiHikCams_Debug.exe",
             "args": [
                 "C:/Users/hamit/Softwares/GrabMultiHikrobotCams/CameraSettings.json"
              ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [
-                {
-                    "name": "PATH",
-                    "value": "$PATH:${command:cmake.launchTargetDirectory}"
-                },
-                {
-                    "name": "OTHER_VALUE",
-                    "value": "Something something"
-                }
+              
             ],
             "externalConsole": false,
 

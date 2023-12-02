@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <fstream>
-
+// #include "HikMultipleCameras.h"
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -29,9 +29,13 @@ const int STREAM_INDEX_IMG = 0;
 
 
 
+
+
 class Container {
 
 public:
+
+     
 
 	Container() {
 		//av_register_all();
@@ -53,7 +57,7 @@ public:
 	 * true if it opens file successfully otherwise it returns false
 	 */
 	bool open(char* filename, bool isWriteMode) {
-		file_name = filename;
+		setFileName(filename);
 		if (isWriteMode) {
 			return openForWrite(filename);
 		}
@@ -214,22 +218,27 @@ public:
 
 
 
-	bool writeImageToContainer(char* data, int length, long timestamp, int streamIndex)
+	bool writeImageToContainer(char* data,  const FrameFeatures &frameFeat,  long timestamp, int streamIndex)
 	{
-		bool result = false;
-		//AVPacket enc_pkt;
 		
+		
+		bool result = false;
+		int frameFeatSize = sizeof(frameFeat);
+		int totalSize = frameFeat.frameLen + frameFeatSize;
+		char *newData =  (char *)av_malloc(totalSize * sizeof(char));
+		memcpy(newData, &frameFeat, frameFeatSize );
+		memcpy(newData + frameFeatSize, data, frameFeat.frameLen );
+		//printf("FrameFeatSize  %d, framelen: %d\n", frameFeatSize, frameFeat.frameLen);
         AVPacket* enc_pkt = av_packet_alloc();
         enc_pkt->data = NULL;
 		enc_pkt->size = 0;
 		//av_init_packet(&enc_pkt);
 		enc_pkt->stream_index = streamIndex;
-		enc_pkt->data = (unsigned char*)data;
-		enc_pkt->size = length;
+		enc_pkt->data = (unsigned char*)newData;
+		enc_pkt->size = totalSize;
 		enc_pkt->pts =  av_rescale_q(timestamp, {1, 1000000}, out_stream_texture->time_base);
 		// enc_pkt->pts =  av_rescale_q(timestamp, AV_TIME_BASE_Q, out_stream_texture->time_base);
 		enc_pkt->dts = enc_pkt->pts;
-
 		int ret = av_write_frame(format_context, enc_pkt);
 		if (ret >= 0) {
 			result = true;
@@ -240,6 +249,8 @@ public:
 			std::cout << "Could not write to container. Error: " << errbuf << std::endl;
 		}
         av_packet_free(&enc_pkt);
+		//delete [] newData;
+		av_free(newData);
 		return result;
 	}
 
@@ -269,9 +280,13 @@ public:
 	 */
 	int read(char* &data, int &length) {
 
+		
+
 		if (!isWriteMode)
 		{
-
+			
+			
+			
 			AVPacket pkt;
 			if (av_read_frame(format_context, &pkt)<0) {
 				//std::cout << "Cannot read frame " << std::endl;
@@ -333,12 +348,22 @@ public:
 		}
 		return true;
 	}
-
+	void setWriteMode(bool mode)
+	{
+		isWriteMode = mode;
+	}
 
 	int getTmpDataSize() {
 		return tmpDataSize;
 	}
-	const char *file_name;
+	void setFileName(const char * filename){
+		file_name= filename;
+	}
+	std::string getFileName()
+	{
+		return file_name;
+	}
+	
 private:
 
 	AVFormatContext* format_context = NULL;
@@ -351,6 +376,9 @@ private:
 	AVStream *out_stream_texture;
 	char* tmpData = NULL;  //10MB
 	int tmpDataSize = 0;
+	bool opened = false;
+	std::string file_name;
+	
 };
 
 

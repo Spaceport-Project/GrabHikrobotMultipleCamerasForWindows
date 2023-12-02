@@ -1,15 +1,15 @@
 {
     "TriggerSource" : "Action1",
-    "TriggerTimeInterval": 100, 
+    "TriggerTimeInterval":40, 
     "BroadcastAddress": "192.168.88.255",
     "Height" : 1200,
     "Width" : 1920,
     "ExposureAuto" : 0,
-    "ExposureTime" : 15000.0,
+    "ExposureTime" : 6000.0,
     "AcquisitionFrameRateEnable" : true,
     "AcquisitionFrameRate" : 50.0,
     "GevPAUSEFrameReception" : true,
     "GevIEEE1588" : true,
-    "Gain" : 15.0
+    "Gain" : 20.0
 
 }
