@@ -114,6 +114,7 @@ public:
     // Pixel format conversion
     int ConvertPixelType(MV_CC_PIXEL_CONVERT_PARAM* pstCvtParam);
 
+    int SaveImage2File(MV_SAVE_IMAGE_TO_FILE_PARAM_EX* pstParamFile);
     // save image
     int SaveImage(MV_SAVE_IMAGE_PARAM_EX* pstParam);
    // int SaveImageToFile(MV_SAVE_IMAGE_TO_FILE_PARAM_EX* pstSaveFileParam);

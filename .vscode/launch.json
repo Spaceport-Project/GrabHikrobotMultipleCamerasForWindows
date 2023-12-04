@@ -90,7 +90,7 @@
             // "program": "${command:cmake.launchTargetPath}",
             "program": "${workspaceFolder}/build/Debug/GrabMultiHikCams_Debug.exe",
             "args": [
-                "C:/Users/hamit/Softwares/GrabMultiHikrobotCams/CameraSettings.json"
+                "C:/Users/spaceport/GrabHikrobotMultipleCamerasForWindows/CameraSettings.json"
              ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

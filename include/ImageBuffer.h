@@ -14,6 +14,7 @@ class ImageBuffer
 
     DataType
     getFront ();
+    bool pop_back();
 
     inline bool
     isFull ()
@@ -101,4 +102,25 @@ ImageBuffer<DataType>::getFront ()
   }
   return (imageBuffers);
 }
+
+template <class DataType>
+bool 
+ImageBuffer<DataType>::pop_back ()
+{
+
+	DataType imageBuffers;
+  {
+    std::unique_lock<std::mutex> buff_lock(bmutex_);
+    while (buffer_.empty ())
+    {
+     // if (is_done) break;
+
+      buff_empty_.wait(buff_lock);
+    }
+
+    buffer_.pop_back ();
+  }
+  return true;
+}
+
 

@@ -30,13 +30,14 @@ int main(int argc, char *argv[]) {
     buf.setCapacity(buff_size);
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
-    tp += std::chrono::milliseconds{1000};
+    tp += std::chrono::milliseconds{10000};
 
     std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras(buf, tp, cameraSettingsFile));
 
     signal (SIGINT, ctrlC);
     
-   // hikroCams->OpenDevices();
+    // hikroCams->OpenDevices();
+   
    
     hikroCams->OpenDevicesInThreads();
     hikroCams->JoinOpenDevicesInThreads();

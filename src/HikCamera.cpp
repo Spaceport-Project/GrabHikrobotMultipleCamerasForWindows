@@ -339,6 +339,11 @@ int HikCamera::ConvertPixelType(MV_CC_PIXEL_CONVERT_PARAM* pstCvtParam)
 }
 
 // save image
+int HikCamera::SaveImage2File(MV_SAVE_IMAGE_TO_FILE_PARAM_EX* pstParamFile)
+{
+    return MV_CC_SaveImageToFileEx(m_hDevHandle, pstParamFile);
+}
+// save image
 int HikCamera::SaveImage(MV_SAVE_IMAGE_PARAM_EX* pstParam)
 {
     return MV_CC_SaveImageEx2(m_hDevHandle, pstParam);

@@ -25,7 +25,7 @@ public:
         }
         av_frame_free(&input_frame);
         av_frame_free(&yuvFrame);
-         av_packet_unref(pkt);
+        av_packet_unref(pkt);
         avcodec_free_context(&codecContext);
         avformat_free_context(formatContext);
     }
@@ -63,9 +63,8 @@ public:
         codecContext->height = OUTPUT_HEIGHT;
         codecContext->time_base = {1,30} ;
         codecContext->framerate = {30,1}; 
-         // Frame rate: 25 fps
-        codecContext->gop_size = 10;
-        codecContext->max_b_frames = 1;
+        // codecContext->gop_size = 10;
+        // codecContext->max_b_frames = 1;
 
        // codecContext->bit_rate = 400000; // Adjust the bitrate as needed
 
@@ -201,7 +200,7 @@ public:
             return false;
         }
 
-         ret = av_image_fill_arrays(
+        ret = av_image_fill_arrays(
             input_frame->data, input_frame->linesize,
             data, AV_PIX_FMT_BAYER_RGGB8,
             INPUT_WIDTH, INPUT_HEIGHT, 1
@@ -218,7 +217,7 @@ public:
                   INPUT_HEIGHT, yuvFrame->data, yuvFrame->linesize);
 
         //input_frame->pts = frameIndex++; // Presentation timestamp
-        yuvFrame->pts = frameIndex++;
+        // yuvFrame->pts = frameIndex++;
         // AVPacket pkt;
         // av_init_packet(&pkt);
         // pkt->data = nullptr;
@@ -243,7 +242,7 @@ public:
                 return false;
             }
 
-           // pkt.pts = frameIndex++; // Presentation timestamp
+            pkt->pts = frameIndex++; // Presentation timestamp
             // pkt.dts = frameIndex; // Decoding timestamp
 
             av_packet_rescale_ts(pkt, codecContext->time_base, videoStream->time_base);

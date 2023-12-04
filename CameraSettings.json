@@ -1,6 +1,6 @@
 {
     "TriggerSource" : "Action1",
-    "TriggerTimeInterval":40, 
+    "TriggerTimeInterval": 30, 
     "BroadcastAddress": "192.168.88.255",
     "Height" : 1200,
     "Width" : 1920,
@@ -10,6 +10,6 @@
     "AcquisitionFrameRate" : 50.0,
     "GevPAUSEFrameReception" : true,
     "GevIEEE1588" : true,
-    "Gain" : 20.0
-
+    "Gain" : 20.0,
+    "PixelFormat": "BayerRG8"
 }
