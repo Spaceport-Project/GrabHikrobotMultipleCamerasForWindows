@@ -9,8 +9,9 @@
 #include <map>
 #include <cstdlib>
 #include "HikCamera.h"
+// #include "Bayer2H264Converter.h"
+#include "Bayer2H264Converter2.h"
 
-#include "Bayer2H264Converter.h"
 
 struct FrameFeatures {
       enum MvGvspPixelType framePixelType;
@@ -20,7 +21,7 @@ struct FrameFeatures {
       unsigned int frameNum;
       char serialNum[128];
 } ;
-#include "HikCamera.h"
+// #include "HikCamera.h"
 #include "ImageBuffer.h"
 #include "Container.h"
 #include "SafeVector.h"
@@ -28,28 +29,6 @@ struct FrameFeatures {
 
 
 
-template <typename T>
-struct atomwrapper
-{
-  std::atomic<T> _a;
-
-  atomwrapper()
-    :_a()
-  {}
-
-  atomwrapper(const std::atomic<T> &a)
-    :_a(a.load())
-  {}
-
-  atomwrapper(const atomwrapper &other)
-    :_a(other._a.load())
-  {}
-
-  atomwrapper &operator=(const atomwrapper &other)
-  {
-    _a.store(other._a.load());
-  }
-};
 class my_barrier
 {
 
@@ -101,7 +80,7 @@ public:
     using mvccIntVector = std::vector<MVCC_INTVALUE>;
     using condVector = std::vector<std::condition_variable>;
     using hikCamVector = std::vector<std::unique_ptr<HikCamera>>;
-    using converterVector = std::vector<std::unique_ptr<BayerToH264Converter>>;
+    // using converterVector = std::vector<std::unique_ptr<BayerToH264Converter>>;
     static bool m_bExit;
 
 	HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &, std::chrono::system_clock::time_point, const std::string&);	      
@@ -153,14 +132,15 @@ private:
     threadVector            m_tWrite2DiskThreads;
     threadVector            m_tReadMp4WriteThreads;
     threadVector            m_tStopGrabbingThreads;
-    converterVector         converters;
+    // converterVector         converters;
+    std::unique_ptr<BayerToH264Converter2> converter;
 
     
     Container               m_Container;
     std::vector<Container>  m_Containers;
     my_barrier              barrier1;
     my_barrier              barrier2;
-    Barrier                 barr1;
+    // Barrier                 barr1;
     //boost::barrier          barrboost;
     byteArrayVector         m_pSaveImagesBuf;
     byteArrayVector         m_pDataForSaveImages;
@@ -253,6 +233,8 @@ private:
     void Write2Disk(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
     void Write2MP4(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
     void Write2MP4FromBayer( int nCurrCamera);
+    void Write2MP4FromBayer2( int nCurrCamera);
+
 
 
 };

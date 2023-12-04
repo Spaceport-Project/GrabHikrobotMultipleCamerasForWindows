@@ -1,6 +1,6 @@
 {
     "TriggerSource" : "Action1",
-    "TriggerTimeInterval":40, 
+    "TriggerTimeInterval": 40, 
     "BroadcastAddress": "192.168.88.255",
     "Height" : 1200,
     "Width" : 1920,

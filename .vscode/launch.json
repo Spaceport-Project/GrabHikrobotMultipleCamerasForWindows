@@ -88,7 +88,7 @@
             "request": "launch",
              "miDebuggerPath": "C:/msys64/mingw64/bin/gdb.exe",
             // "program": "${command:cmake.launchTargetPath}",
-            "program": "${workspaceFolder}/build/Debug/GrabMultiHikCams_Debug.exe",
+            "program": "${workspaceFolder}/build/GrabMultiHikCams_Debug.exe",
             "args": [
                 "C:/Users/hamit/Softwares/GrabMultiHikrobotCams/CameraSettings.json"
              ],

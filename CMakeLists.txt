@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 project(GrabMultiHikrobotCameras VERSION 0.1 LANGUAGES C CXX)
-
+set(CMAKE_GENERATOR "Ninja")
 # if (CMAKE_BUILD_TYPE)
 #     unset(CMAKE_BUILD_TYPE CACHE)
 # endif()
@@ -24,14 +24,14 @@ set(PROJECT_SOURCES
 
 # Hikrobot Camera
 #link_directories(/opt/MVS/lib/64)
-link_directories("C:/Program Files (x86)/MVS/Development/Libraries/win64"  "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/lib" )
+link_directories("C:/Program Files (x86)/MVS/Development/Libraries/win64"  "C:/ffmpeg-win64-gpl-shared/lib" )
 SET(PROJECT_INCLUDE_DIRECTORIES ${PROJECT_INCLUDE_DIRECTORIES} "C:/Program Files (x86)/MVS/Development/Includes")
 SET(PROJECT_SOURCES ${PROJECT_SOURCES}
     "C:/Program Files (x86)/MVS/Development/Includes/MvCameraControl.h"
 )
 SET(PROJECT_LIBS  MvCameraControl)
-set (Boost_INCLUDE_DIRS "C:/boost/include")
-set (ffmpeg_INCLUDE_DIRS  "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/include")
+set (Boost_INCLUDE_DIRS "C:/boost_1_83/include")
+set (ffmpeg_INCLUDE_DIRS  "C:/ffmpeg-win64-gpl-shared/include")
 set(GrabMultiHikCams GrabMultiHikCams_${CMAKE_BUILD_TYPE})
 add_executable(${GrabMultiHikCams}  ${PROJECT_SOURCES})
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
