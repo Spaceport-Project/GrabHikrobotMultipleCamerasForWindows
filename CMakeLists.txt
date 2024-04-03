@@ -30,7 +30,7 @@ SET(PROJECT_SOURCES ${PROJECT_SOURCES}
     "C:/Program Files (x86)/MVS/Development/Includes/MvCameraControl.h"
 )
 SET(PROJECT_LIBS  MvCameraControl)
-set (Boost_INCLUDE_DIRS "C:/boost_1_83/")
+set (Boost_INCLUDE_DIRS "C:/boost_1_83/include")
 set (ffmpeg_INCLUDE_DIRS  "C:/ffmpeg-win64-gpl-shared/include")
 set(GrabMultiHikCams GrabMultiHikCams_${CMAKE_BUILD_TYPE})
 add_executable(${GrabMultiHikCams}  ${PROJECT_SOURCES})

@@ -46,7 +46,7 @@ public:
     // using converterVector = std::vector<std::unique_ptr<BayerToH264Converter>>;
     static bool m_bExit;
 
-	HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &, std::chrono::system_clock::time_point, const std::string&);	      
+	HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &,  ImageBuffer<std::vector<AVPacket*>> &, std::chrono::system_clock::time_point, const std::string&);	      
    
 private:
     MV_CC_DEVICE_INFO_LIST  m_stDevList;
@@ -85,6 +85,7 @@ private:
     threadVector            m_tConsumeThreads;
     thread                  m_tTriggerThread;
     thread                  m_tCheckBuffThread;
+    thread                  m_tCheck4H264Thread;
     threadVector            m_tSaveBufThreads;
     thread                  m_tSaveDiskThread;
     threadVector            m_tOpenDevicesThreads;
@@ -101,6 +102,7 @@ private:
     
     Container               m_Container;
     std::vector<Container>  m_Containers;
+    my_barrier              barrier0;
     my_barrier              barrier1;
     my_barrier              barrier2;
     // Barrier                 barr1;
@@ -111,11 +113,14 @@ private:
     frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
     SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
-    SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_Prev;
-    SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_New;
+    SafeVector<AVPacket *> m_vectorAvPacketBuff;
+
+    // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_Prev;
+    // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_New;
 
     //ImageBuffer<SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
     ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
+    ImageBuffer<std::vector<AVPacket* >> &m_h264Buff;
     std::unique_ptr<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> m_buffItem;
     std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> buff_item;
 
@@ -125,6 +130,7 @@ private:
     std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_currentPairImagesInfo_Buff_Prev;
 
     std::mutex              m_mGrabMutex;
+    std::mutex              m_mWriteMp4Mutex;
     std::mutex              m_mSaveMutex;
     std::mutex              m_mOpenDevMutex;
     std::mutex              m_mIoMutex;
@@ -132,14 +138,18 @@ private:
    // std::vector<std::mutex> m_mProduceMutexes;
     std::vector<std::mutex> m_mProduceMutexes;
     std::vector<std::mutex> m_mCheckMutexes;
+    std::vector<std::mutex> codecMutexes_;
 
     condVector              m_cDataReadyCon;
     std::condition_variable m_cdataCheckCon;
     std::condition_variable m_cDataReadySingleCon1;
+    std::condition_variable m_cDataReadyWriMP4Con;
     std::condition_variable m_cDataReadySingleCon2;
 
     std::map<int, std::string> m_mapSerials; 
     std::map<int, std::string> m_mapModels; 
+    unsigned int                barr_cnt =0;
+    std::atomic<int>            counter_at{0};
   
                   
 
@@ -171,7 +181,7 @@ public:
     void OpenThreadsTimeStampControlReset();
     void TimeStampControlReset();
     
-    int ThreadWrite2MP4Fun(int );
+    int ThreadCheck4H264Fun( );
     int ThreadWrite2MP4Fun2();
     int ThreadWrite2DiskFunEx2();
 
@@ -198,7 +208,9 @@ private:
     void Write2Disk(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
     void Write2MP4(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
     void Write2MP4FromBayer( int nCurrCamera);
-    void Write2MP4FromBayer2( int nCurrCamera);
+    void Write2H264FromBayer2( int nCurrCamera);
+    void Write2H264FromBayer3(int numWriteThreads);
+
 
 
 
