@@ -10,6 +10,7 @@
 #include <memory>
 #include <cstdint>
 #include <exception>
+#include <numeric>
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
@@ -31,7 +32,19 @@
 
 
 
-
+template<typename T>
+std::vector<std::size_t> tag_sort(const std::vector<T>& v)
+{
+    std::vector<std::size_t> result(v.size());
+    std::iota(std::begin(result), std::end(result), 0);
+    std::sort(std::begin(result), std::end(result),
+            [&v](const auto & lhs, const auto & rhs)
+            {
+                return v[lhs] < v[rhs];
+            }
+    );
+    return result;
+}
 
 // FBS Calculator
 thread_local unsigned count = 0;
@@ -50,6 +63,26 @@ do \
       last = now; \
     } \
 } while(false)
+
+// thread_local unsigned count_buf = 0;
+// thread_local unsigned counter = 0;
+
+// thread_local double last_buf = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+
+// #define FPS_CALC_THREAD_BUF(_WHAT_, buff) \
+// do \
+// { \
+//     double now_buf = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); \
+//     ++count_buf; \
+//     ++counter; \
+//     if (now_buf - last_buf >= 1.0) \
+//     { \
+//       std::cerr << "Average framerate("<< _WHAT_ << "): " << double(count_buf)/double(now_buf - last_buf) << " Hz. Queue size: " << buff.getSize () << " Frame Number: "<<counter <<"\n"; \
+//       count_buf = 0; \
+//       last_buf = now_buf; \
+//     } \
+// }while(false)
+
 
 #define FPS_CALC_BUF(_WHAT_, buff) \
 do \
@@ -70,11 +103,12 @@ do \
 
 
 // HikMultipleCameras dialog
-HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &buf, std::chrono::system_clock::time_point timePoint, const std::string& cameraSettingsFile):
+HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &buf,  ImageBuffer<std::vector<AVPacket*>> &h264Buff, std::chrono::system_clock::time_point timePoint, const std::string& cameraSettingsFile):
       m_buf(buf)
+    , m_h264Buff(h264Buff)
     , m_nDeviceNum(0)
     , m_nDeviceNumDouble(0)
-    , m_nWriteThreads(2)
+    , m_nWriteThreads(6)
     , m_timePoint(timePoint)
     , m_bOpenDevice(false)
     , m_bStartGrabbing(false)
@@ -87,6 +121,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
     , m_sTriggerSource("")
     , m_sCameraSettingsFile(cameraSettingsFile)
     , m_nTriggerTimeInterval(0)
+    , barrier0(0)
     , barrier1(0)
     , barrier2(0)
 
@@ -110,7 +145,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
     if (m_nDeviceNum > 0)
     {
         
-        converter = std::make_unique<BayerToH264Converter2>(m_nDeviceNum, 1920, 1200);
+        converter = std::make_unique<BayerToH264Converter2>(m_nDeviceNum, m_nWriteThreads, 1920, 1200);
         converter->initializeContexts("D:/AllCameras.mp4");
         m_bImagesOk.resize(m_nDeviceNum, false);
         m_bImagesCheck.resize(m_nDeviceNum, false);
@@ -122,11 +157,12 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
         m_nSaveImagesBufSize.resize(m_nDeviceNum, 0);
         m_Containers.resize(m_nDeviceNum, Container());
         m_its.resize(m_nDeviceNum, 0);
-        m_cnt.resize(m_nDeviceNum);
+        // m_cnt.resize(m_nDeviceNum);
        // m_cnt.resize(m_nDeviceNum, std::make_unique<std::atomic<int>>(0));
         m_pairImagesInfo_Buff.resize(m_nDeviceNum);
-        m_pairImagesInfo_Buff_Prev.resize(m_nDeviceNum);
-        m_pairImagesInfo_Buff_New.resize(m_nDeviceNum);
+        m_vectorAvPacketBuff.resize(m_nDeviceNum, nullptr);
+        // m_pairImagesInfo_Buff_Prev.resize(m_nDeviceNum);
+        // m_pairImagesInfo_Buff_New.resize(m_nDeviceNum);
         barrier1.setCounter(m_nDeviceNum );
         barrier2.setCounter(m_nDeviceNum );
         
@@ -137,6 +173,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
         m_mProduceMutexes = std::vector<std::mutex>(m_nDeviceNum);
         m_mProduceMutexes = std::vector<std::mutex>(m_nDeviceNum);
         m_mCheckMutexes = std::vector<std::mutex>(m_nDeviceNum);
+        codecMutexes_ =  std::vector<std::mutex>(m_nDeviceNum);
         m_cDataReadyCon = condVector(m_nDeviceNum);
        // m_cdataCheckCon = condVector(m_nDeviceNum);
         
@@ -153,7 +190,7 @@ HikMultipleCameras::HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAM
             m_pDataForSaveImages.push_back(nullptr);
             m_pSaveImagesBuf.push_back(nullptr);
             m_pcMyCameras.push_back(std::make_unique<HikCamera>());
-            m_pairImagesInfo_Buff_New.set(i, std::make_pair(MV_FRAME_OUT_INFO_EX{0}, nullptr));
+            // m_pairImagesInfo_Buff_New.set(i, std::make_pair(MV_FRAME_OUT_INFO_EX{0}, nullptr));
             printf("%d Camera serial number:%s\n", i, m_mapSerials[i].c_str());
             // std::string fileNameTmp = "hikrobot_" + m_mapSerials[i] + "_" + std::to_string(sec.count()) + ".mp4";
             // if (!m_Containers[i].open((char*)fileNameTmp.c_str(), true))
@@ -328,7 +365,7 @@ int HikMultipleCameras::ThreadGrabWithGetImageBufferFun(int nCurCameraIndex)
                 #else
                 DEBUG_PRINT("Grabbing duration in DevIndex[%d]= %ld[ms]\n", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
                 #endif  
-               // printf("Grabbing duration in DevIndex[%d]= %lld[ms]\n", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
+            //    printf("Grabbing duration in DevIndex[%d]= %lld[ms]\n", nCurCameraIndex, std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() );
                 
                 if (nRet == MV_OK)
                 {
@@ -1133,8 +1170,9 @@ int HikMultipleCameras::Save2BufferThenDisk()
 
   //  m_tSaveBufThread = std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadSave2BufferFun, this));
    // m_tSaveDiskThread =  std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadSave2DiskFun, this));
+   
     m_tCheckBuffThread = std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadCheckBufferFun, this));
-
+    m_tCheck4H264Thread = std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadCheck4H264Fun, this));
 
 
    
@@ -1142,10 +1180,15 @@ int HikMultipleCameras::Save2BufferThenDisk()
     // for (unsigned int i = 0; i < m_nWriteThreads ; i++)
     //     m_tWrite2DiskThreads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::ThreadWrite2DiskFunEx2, this)));
    
-    for (unsigned int i = 0; i < m_nDeviceNum; i++) 
-    {
-        m_tSaveAsMP4Threads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::Write2MP4FromBayer2, this, i)));
-    }
+    // for (unsigned int i = 0; i < m_nDeviceNum; i++) 
+    // {
+    //     m_tSaveAsMP4Threads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::Write2H264FromBayer2, this, i)));
+    // }
+    
+    for (unsigned int i = 0; i < m_nWriteThreads ; i++)
+        m_tSaveAsMP4Threads.push_back(std::make_unique<std::thread>(std::bind(&HikMultipleCameras::Write2H264FromBayer3, this, i)));
+
+
     return MV_OK;
 
 }   
@@ -1156,7 +1199,7 @@ int HikMultipleCameras::ThreadCheckBufferFun()
     while(true)
     {
         if (m_bExit) {
-            m_buf.pop_back();
+            // m_buf.pop_back();
             break;
         }
         std::unique_lock<std::mutex> lk(m_mGrabMutex);
@@ -1757,64 +1800,183 @@ void HikMultipleCameras::Write2Disk( const std::vector<std::pair<MV_FRAME_OUT_IN
 
 // }
 
-void HikMultipleCameras::Write2MP4FromBayer2(int nCurrCamera)
-{
-    while (true)
-    {
-       
-        if (m_bExit)   break;
-        if (nCurrCamera == 0)
+
+void HikMultipleCameras::Write2H264FromBayer3(int nCurrWriteThread) {
+
+    while(true)
+    {    
+        // counter_at[]
+        if (m_bExit) break;
+        //  barrier1.wait();
+        const auto & buffItem = m_buf.getFront();
+        // std::cout<<nCurrWriteThread<<". Thread, Begin:"<<std::endl;
+        for (int i = 0 ; i < buffItem.size(); i++)
         {
-            buff_item = std::move(m_buf.getFront());
-            converter->incrementCounter();
-        }
-        barrier1.wait();
-        converter->convertAndEncodeBayerToH264(buff_item[nCurrCamera].second.get(), nCurrCamera);
-        // if (converter->getResults()[nCurrCamera])
-        //     converter->writeSingleFrame2MP4(nCurrCamera);
+            {
+              std::unique_lock<std::mutex> lk(codecMutexes_[i]);
 
-
-
-        barrier2.wait();
-        if (nCurrCamera == 0) {
-           bool res = std::all_of(converter->getResults().begin(), converter->getResults().end(), [](bool v) { return v; });
-           if (res)
-               converter->writeAllFrames2MP4(); 
+                bool res = converter->convertAndEncodeBayerToH264(buffItem[i].second.get(), i, nCurrWriteThread, buffItem[i].first.nFrameNum);
+            }
+            // if (res ) std::cout<<i<<". Cam Timestamp:"<<buffItem[i].first.nHostTimeStamp<<", "<<buffItem[i].first.nFrameNum<<std::endl;
+            // std::cout<<"res:"<<res<<std::endl;
+            // std::cout<<nCurrWriteThread<<" "<<i<<"th camera frame num: "<<", "<<buffItem[i].first.nFrameNum<<std::endl;
 
         }
+        // std::cout<<nCurrWriteThread<<". Thread, End."<<std::endl;
+
+        // converter->reset(nCurrWriteThread);
+        // bool res = std::all_of(converter->getResults()[nCurrWriteThread].begin(), converter->getResults()[nCurrWriteThread].end(), [](bool v) { return v; });
+        
+        // barrier1.wait();
+        // if (res)
+        //     m_cDataReadyWriMP4Con.notify_one();
+        
+        bool res = std::all_of(converter->getResults()[nCurrWriteThread].begin(), converter->getResults()[nCurrWriteThread].end(), [](bool v) { return v; });
+        if (res)
+            converter->writeAllFrames2MP42(nCurrWriteThread); 
+
+         // barrier2.wait();
+        // if (nCurrWriteThread == 0) {
+        //     auto &frameNums = converter->getFrameNums();
+        //     std::vector<int> index(frameNums.size(), 0);
+        //     for (int i = 0 ; i != index.size() ; i++) {
+        //         index[i] = i;
+        //     }
+        //     std::sort(index.begin(), index.end(),
+        //         [&](const int& a, const int& b) {
+        //             return (frameNums[a] < frameNums[b]);
+        //         }
+        //     );
+        //     for (unsigned int i = 0; i < m_nWriteThreads; i++ ) {
+        //         bool res = std::all_of(converter->getResults()[index[i]].begin(), converter->getResults()[index[i]].end(), [](bool v) { return v; });
+        //         if (res)
+        //             converter->writeAllFrames2MP42(index[i]); 
+
+        //     }
+           
+        //     printf("Buffer size:%d\n",m_buf.getSize());
+        // std::cout<<"res2:"<<res<<std::endl;
+
+
+    }
+
+     while (!m_buf.isEmpty ()) {
+        const auto &buffItem = m_buf.getFront();
+
+
+        for (int i = 0 ; i < buffItem.size(); i++)
+        {
+           {
+                std::unique_lock<std::mutex> lk(codecMutexes_[i]);
+
+                bool res = converter->convertAndEncodeBayerToH264(buffItem[i].second.get(), i, nCurrWriteThread,  buffItem[i].first.nFrameNum);
+
+           }
+            // std::cout<<"res:"<<res<<std::endl;
+        }
+        // converter->reset(nCurrWriteThread);
+
+        bool res = std::all_of(converter->getResults()[nCurrWriteThread].begin(), converter->getResults()[nCurrWriteThread].end(), [](bool v) { return v; });
+        if (res)
+            converter->writeAllFrames2MP42(nCurrWriteThread); 
+        printf("Buffer size:%d\n",m_buf.getSize());
+
+     }
+
+
+
+
+}
+
+// void HikMultipleCameras::Write2H264FromBayer2(int nCurrCamera)
+// {
+//     while (true)
+//     {
+       
+//         if (m_bExit)   break;
+//         // barrier0.wait();
+
+//         if (nCurrCamera == 0)
+//         {
+//             buff_item = std::move(m_buf.getFront());
+//             converter->incrementCounter();
+//             barr_cnt++;
+//         }
+//         barrier1.wait();
+//         // converter->reset(nCurrCamera);
+//         bool res = converter->convertAndEncodeBayerToH264(buff_item[nCurrCamera].second.get(), nCurrCamera);
+//         // std::cout<<"result: "<<res<<std::endl;
+//         // if (barr_cnt < 100) 
+//         // barrier2.wait();
+//         // if (res) {
+//         //     // AVPacket *clone = av_packet_alloc();
+
+//         //     // clone->data = reinterpret_cast<uint8_t*>(new uint64_t[(converter->getPacket(nCurrCamera)->size + AV_INPUT_BUFFER_PADDING_SIZE)/sizeof(uint64_t) + 1]);
+//         //     // memcpy(clone->data, converter->getPacket(nCurrCamera)->data, converter->getPacket(nCurrCamera)->size);
+            
+//         //     // m_vectorAvPacketBuff.set(nCurrCamera, clone);
+//         //     // AVPacket *pkt = converter->getPacket(nCurrCamera);
+//         //     // av_packet_unref(converter->getPacket(nCurrCamera));
+//         //     // printf("result: %d: %d\n", nCurrCamera, converter->getResults()[nCurrCamera]);
+//         //     std::cout<<"result: "<<nCurrCamera<<", "<<converter->getResults()[nCurrCamera]<<", "<<converter->getPacket(nCurrCamera)->size<<", " <<std::endl;
+//         //     m_cDataReadyWriMP4Con.notify_one();
+//         //     converter->reset(nCurrCamera);
+
+//         //     // av_packet_unref(pkt);
+
+//         //     // av_packet_unref(m_vectorAvPacketBuff[nCurrCamera]);
+
+//         // }
+
+//         // if (converter->getResults()[nCurrCamera])
+//         //     converter->writeSingleFrame2MP4(nCurrCamera);
+
+//         barrier2.wait();
+//         if (nCurrCamera == 0) {
+//            bool res = std::all_of(converter->getResults().begin(), converter->getResults().end(), [](bool v) { return v; });
+//            if (res)
+//                converter->writeAllFrames2MP4(); 
+
+//         }
            
 
 
 
     
-    }
+//     }
 
-     while (!m_buf.isEmpty ()) {
+//      while (!m_buf.isEmpty ()) {
     
-        if (nCurrCamera == 0)
-        {
-            buff_item = std::move(m_buf.getFront());
-            converter->incrementCounter();
+//         if (nCurrCamera == 0)
+//         {
+//             buff_item = std::move(m_buf.getFront());
+//             converter->incrementCounter();
 
-        }
-            // m_buffItem = std::make_unique<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>>(m_buf.getFront());
-        barrier1.wait();
-        bool res = converter->convertAndEncodeBayerToH264(buff_item.at(nCurrCamera).second.get(), nCurrCamera);
-        barrier2.wait();
-        if (nCurrCamera == 0) {
-           bool res = std::all_of(converter->getResults().begin(), converter->getResults().end(), [](bool v) { return v; });
-           if (res)
-               converter->writeAllFrames2MP4(); 
-                printf("Buffer size:%d\n",m_buf.getSize());
+//         }
+//             // m_buffItem = std::make_unique<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>>(m_buf.getFront());
+//         barrier1.wait();
+//         bool res = converter->convertAndEncodeBayerToH264(buff_item.at(nCurrCamera).second.get(), nCurrCamera);
+//         // converter->convertAndEncodeBayerToH264(buff_item[nCurrCamera].second.get(), nCurrCamera);
+//         // m_vectorAvPacketBuff.set(nCurrCamera, converter->getPacket(nCurrCamera));
+//         // m_cDataReadyWriMP4Con.notify_one();
 
-        }
+        
+        
+//         barrier2.wait();
+//         if (nCurrCamera == 0) {
+//            bool res = std::all_of(converter->getResults().begin(), converter->getResults().end(), [](bool v) { return v; });
+//            if (res)
+//                converter->writeAllFrames2MP4(); 
+//             printf("Buffer size:%d\n",m_buf.getSize());
+
+//         }
        
        
-    }
+//     }
 
 
 
-}
+// }
 
 
 
@@ -2223,31 +2385,67 @@ int HikMultipleCameras::ThreadWrite2DiskFun( ImageBuffer<std::vector<std::pair<M
 
 
 
-int HikMultipleCameras::ThreadWrite2MP4Fun( int nCurCameraIndex) {
+int HikMultipleCameras::ThreadCheck4H264Fun( ) {
+    while(true)
+    {
+        if (m_bExit) break;
 
-    // while (true)
-    // {
-    //     std::cout<<"Before writing..........."<<std::endl;
+        {
+            std::unique_lock<std::mutex> lk(m_mWriteMp4Mutex);
+            m_cDataReadyWriMP4Con.wait(lk, [this] {
+            // for (int i = 0 ; i < converter->getResults().size(); i++)
+                // printf("Inside wait - converter results: %d, %d \n",i, converter->getResults()[i] );
 
-    //     // if (m_currentPairImagesInfo_Buff.size() ==0)
-    //     // {
-    //     //     std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    //     //     continue;
-    //     // }
-        
-    //     int arraySize = m_pairImagesInfo_Buff[nCurCameraIndex].first.nFrameLen;
-    //     if (!m_Containers[nCurCameraIndex].writeImageToContainer((char*) m_pairImagesInfo_Buff[nCurCameraIndex].second.get(), arraySize, m_its[nCurCameraIndex]*100000, STREAM_INDEX_IMG)) 
-    //     {
-    //         printf("Cannot write texture to container\n");
-    //         return -1 ;
-    //     }
-    //     std::cout<<"Its writing..........."<<std::endl;
-    //     m_its[nCurCameraIndex]++;
-    //     m_bImagesReady[nCurCameraIndex] = true;
-    //     m_cDataReadySingleCon2.notify_one();
-    //     if (m_bExit) break;
+            // return std::all_of(converter->getResults().begin(), converter->getResults().end(), [](bool v) { return v; });
+            bool sum=true;
+            int i = 0;
+            for (; i < converter->getResults().size(); i++){
+                bool res = std::all_of(converter->getResults()[i].begin(), converter->getResults()[i].end(), [](bool v) { return v; });
+                sum = sum && res;
+
+            }
+            std::cout<<"sum:"<<sum<<std::endl;
+            if (i == 0 ) return false;
+            else return sum;
+            
+
+            });
+        }
+        // std::fill(converter->getResults().begin(), converter->getResults().end(), false);
+        auto framNums = converter->getFrameNums();
+
+        std::vector<int> index(framNums.size(), 0);
+        for (int i = 0 ; i != index.size() ; i++) {
+            index[i] = i;
+        }
+        std::sort(index.begin(), index.end(),
+            [&](const int& a, const int& b) {
+                return (framNums[a] < framNums[b]);
+            }
+        );
+        for (int i = 0 ; i != index.size() ; i++) {
+            std::cout << index[i] << ":"<< framNums[index[i]]<<std::endl;
+        }
+        // std::vector<int> y(framNums.size());
+        // std::size_t n(0);
+        // std::generate(std::begin(y), std::end(y), [&]{ return n++; });
+
+        // std::sort(  std::begin(y), 
+        //             std::end(y),
+        //             [&](int i1, int i2) { return framNums[i1] < framNums[i2]; } );
+        // auto idxs = tag_sort(framNums);
+        // for (auto && elem : idxs)
+        // std::cout << elem << " : " << framNums[elem] << std::endl;
+        for (int i = 0 ; i < m_nWriteThreads; i++)
+            converter->writeAllFrames2MP42(index[i]);
+
+      
        
-    // }
+        
+     
+
+
+    }
    
     return MV_OK;
 
@@ -2547,11 +2745,13 @@ int HikMultipleCameras::StopGrabbing()
         }
         
     }
+    m_tCheckBuffThread->join();
 
-     for (unsigned int i = 0; i < m_nDeviceNum; i++)  
+
+     for (unsigned int i = 0; i < m_nWriteThreads; i++)  
         m_tSaveAsMP4Threads[i]->join();
     
-    m_tCheckBuffThread->join();
+    // m_tCheck4H264Thread->join();
 
 
    

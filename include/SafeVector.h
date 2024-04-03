@@ -58,6 +58,10 @@ public:
         std::lock_guard<std::mutex> lock(mtx);
         return data[index];
     }
+    void resize(size_t newSize, T val) {
+        std::lock_guard<std::mutex> lock(mtx);
+        data.resize(newSize, val);
+    }
     void resize(size_t newSize) {
         std::lock_guard<std::mutex> lock(mtx);
         data.resize(newSize);
