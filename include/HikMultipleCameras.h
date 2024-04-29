@@ -86,6 +86,7 @@ private:
     thread                  m_tTriggerThread;
     thread                  m_tCheckBuffThread;
     thread                  m_tCheck4H264Thread;
+    thread                  m_tWrite2MP4Thread;
     threadVector            m_tSaveBufThreads;
     thread                  m_tSaveDiskThread;
     threadVector            m_tOpenDevicesThreads;
@@ -180,7 +181,7 @@ public:
     void JoinThreadsTimeStampControlReset();
     void OpenThreadsTimeStampControlReset();
     void TimeStampControlReset();
-    
+
     int ThreadCheck4H264Fun( );
     int ThreadWrite2MP4Fun2();
     int ThreadWrite2DiskFunEx2();
@@ -206,12 +207,11 @@ private:
     int SetTriggerSoftwareMode();
     int SetTriggerGigEAction();
     void Write2Disk(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
-    void Write2MP4(const std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>>&);
+    void Write2MP4();
+
     void Write2MP4FromBayer( int nCurrCamera);
     void Write2H264FromBayer2( int nCurrCamera);
     void Write2H264FromBayer3(int numWriteThreads);
 
-
-
-
+    void Write2H264FromBayer4(int nCurrWriteThread);
 };

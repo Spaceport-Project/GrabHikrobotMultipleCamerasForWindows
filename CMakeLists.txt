@@ -8,6 +8,9 @@ set(CMAKE_GENERATOR "Ninja")
 # set(CMAKE_BUILD_TYPE Debug CACHE STRING "Choose the type of build (Debug, Release)")
 message("CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# message(${CMAKE_CXX_FLAGS})
+# set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} /MD /O1 /Ob1 ")
+
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -75,3 +78,5 @@ target_link_libraries(ConnectViaIPAddress PRIVATE ${PROJECT_LIBS})
 add_executable(ReadMp4Write2Disk  mainReadMp4Write2Disk.cpp src/HikCamera.cpp)
 target_include_directories(ReadMp4Write2Disk PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${ffmpeg_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(ReadMp4Write2Disk PRIVATE ${PROJECT_LIBS} avformat avcodec swscale avutil)
+
+add_executable(priority priority.cpp)

@@ -10,12 +10,15 @@
 
 
 bool HikMultipleCameras::m_bExit = false;
+bool BayerToH264Converter2::m_bExit = false;
 
 
 void ctrlC (int)
 {
   printf ("\nCtrl-C detected, exit condition set to true.\n");
   HikMultipleCameras::m_bExit  = true;
+  BayerToH264Converter2::m_bExit = true;
+
 }
 
 int main(int argc, char *argv[]) {
