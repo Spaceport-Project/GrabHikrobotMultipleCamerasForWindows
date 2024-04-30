@@ -4,6 +4,10 @@
 #include <vector>
 #include <cassert>
 #include <atomic>
+#include <queue>
+#include <condition_variable>
+#include <functional>
+
 
 extern "C" {
 #include <libavformat/avformat.h>
@@ -13,8 +17,37 @@ extern "C" {
 #include <libavcodec/avcodec.h>
 }
 
+
+
+
 class BayerToH264Converter2{
 public:
+    struct PacketComparator {
+
+        bool operator() (const std::vector<AVPacket*> &p1, const std::vector<AVPacket*> &p2)  {
+            // If both packets have valid pts values, compare them
+
+                if (p1[0]->pts != AV_NOPTS_VALUE && p2[0]->pts != AV_NOPTS_VALUE) {
+                    // std::cout<<"pts: "<<p1[0]->pts<< " "<< p2[0]->pts<< std::endl;
+                    return p1[0]->pts > p2[0]->pts;
+                }
+                // If only one packet has a valid pts, prioritize it
+                else if (p1[0]->pts != AV_NOPTS_VALUE) {
+
+                    return false;
+                }
+                else if (p2[0]->pts != AV_NOPTS_VALUE) {
+
+                    return true;
+                }
+                // If both packets have no pts, compare their position in the stream
+                else {
+
+                    return p1[0]->pos > p2[0]->pos;
+                }
+            }
+    };
+ 
     BayerToH264Converter2(unsigned int device_num, unsigned int numWriteThreads, unsigned int input_width, unsigned int input_height):
         width_(input_width), 
         height_(input_height),
@@ -123,39 +156,39 @@ public:
         // {
             // vec_codec_contexts_.push_back(std::vector<AVCodecContext*>());
             // vec_video_streams_.push_back(std::vector<AVStream*>());
-            for (unsigned int i = 0 ; i < num_devices_ ; i++)
-            {
-               
-                // if (j == 0 ) {
-                    video_streams_.push_back(avformat_new_stream(format_context, codec));
-                    if (!video_streams_.back()) 
-                    {
-                        fprintf(stderr, "Error creating video stream\n");
-                        return false;
-                    }
-                    // vec_video_streams_.b
-                // }
-                
-                
-                codec_contexts_.push_back(avcodec_alloc_context3(codec));
-                if (!codec_contexts_.back()) 
+        for (unsigned int i = 0 ; i < num_devices_ ; i++)
+        {
+            
+            // if (j == 0 ) {
+                video_streams_.push_back(avformat_new_stream(format_context, codec));
+                if (!video_streams_.back()) 
                 {
-                    fprintf(stderr, "Could not allocate codec context\n");
+                    fprintf(stderr, "Error creating video stream\n");
                     return false;
                 }
-                // codec_contexts_.back()->codec_id = AV_CODEC_ID_H264;
-                codec_contexts_.back()->codec_type = AVMEDIA_TYPE_VIDEO;
-                codec_contexts_.back()->pix_fmt = AV_PIX_FMT_YUV420P;
-                codec_contexts_.back()->width = width_;
-                codec_contexts_.back()->height = height_;
-                codec_contexts_.back()->time_base = {1,30} ;
-                codec_contexts_.back()->framerate = {30,1}; 
-                codec_contexts_.back()->gop_size = 10;
-                codec_contexts_.back()->max_b_frames = 1;
-                codec_contexts_.back()->thread_count = num_write_threads;
-                codec_contexts_.back()->thread_type = FF_THREAD_FRAME;
-        
-                // av_opt_set(codec_contexts_.back()->priv_data, "preset", "fast", 0);
+                // vec_video_streams_.b
+            // }
+            
+            
+            codec_contexts_.push_back(avcodec_alloc_context3(codec));
+            if (!codec_contexts_.back()) 
+            {
+                fprintf(stderr, "Could not allocate codec context\n");
+                return false;
+            }
+            // codec_contexts_.back()->codec_id = AV_CODEC_ID_H264;
+            codec_contexts_.back()->codec_type = AVMEDIA_TYPE_VIDEO;
+            codec_contexts_.back()->pix_fmt = AV_PIX_FMT_YUV420P;
+            codec_contexts_.back()->width = width_;
+            codec_contexts_.back()->height = height_;
+            codec_contexts_.back()->time_base = {1,30} ;
+            codec_contexts_.back()->framerate = {30,1}; 
+            codec_contexts_.back()->gop_size = 10;
+            codec_contexts_.back()->max_b_frames = 1;
+            codec_contexts_.back()->thread_count = num_write_threads;
+            codec_contexts_.back()->thread_type = FF_THREAD_FRAME;
+    
+            // av_opt_set(codec_contexts_.back()->priv_data, "preset", "fast", 0);
 
                 // codec_contexts_.back()->bit_rate = 400000; // Adjust the bitrate as needed
                 if (avcodec_open2(codec_contexts_.back(), codec, nullptr) < 0) 
@@ -166,8 +199,8 @@ public:
                 avcodec_parameters_from_context(video_streams_.back()->codecpar, codec_contexts_.back());
 
 
-            }
-        // }
+        }
+      
        
        
 
@@ -189,25 +222,52 @@ public:
         // Initialize SwsContext for Bayer to YUV conversion
     //    for (unsigned int j = 0 ; j < 1 ;j++) {
 
-            sws_ctx_ = sws_getContext(
-                    width_, height_, AV_PIX_FMT_BAYER_RGGB8,
-                width_, height_, AV_PIX_FMT_YUV420P,
-                SWS_BILINEAR, nullptr, nullptr, nullptr
-            );
+        sws_ctx_ = sws_getContext(
+                width_, height_, AV_PIX_FMT_BAYER_RGGB8,
+            width_, height_, AV_PIX_FMT_YUV420P,
+            SWS_BILINEAR, nullptr, nullptr, nullptr
+        );
 
-            if (!sws_ctx_) 
-            {
-                fprintf(stderr, "Failed to initialize SwsContext\n");
-                return false;
-            }
+        if (!sws_ctx_) 
+        {
+            fprintf(stderr, "Failed to initialize SwsContext\n");
+            return false;
+        }
         // }
+
+        // PacketComparator = [] (const std::vector<AVPacket*> p1, const std::vector<AVPacket*> p2)  {
+        // // If both packets have valid pts values, compare them
+        //     std::cout<<"Inside pts comparator -1"<<std::endl;
+        //     if (p1[0]->pts != AV_NOPTS_VALUE && p2[0]->pts != AV_NOPTS_VALUE) {
+        //         std::cout<<"Inside pts comparator 0"<<std::endl;
+        //         return p1[0]->pts > p2[0]->pts;
+        //     }
+        //     // If only one packet has a valid pts, prioritize it
+        //     else if (p1[0]->pts != AV_NOPTS_VALUE) {
+        //         std::cout<<"Inside pts comparator 1"<<std::endl;
+
+        //         return false;
+        //     }
+        //     else if (p2[0]->pts != AV_NOPTS_VALUE) {
+        //         std::cout<<"Inside pts comparator 2"<<std::endl;
+
+        //         return true;
+        //     }
+        //     // If both packets have no pts, compare their position in the stream
+        //     else {
+        //         std::cout<<"Inside pts comparator 3"<<std::endl;
+
+        //         return p1[0]->pos > p2[0]->pos;
+        //     }
+        // };
+        // queuevecPkts_ = std::priority_queue<std::vector<AVPacket *>, std::vector<std::vector<AVPacket*>>, PacketComparator>(PacketComparator());
         return true;
 
     }
 
     bool convertAndEncodeBayerToH264(uint8_t *bayerData, unsigned int n_curr_camera, unsigned int nCurrWriteThread,  unsigned int frameNum) 
     {
-         assert( n_curr_camera < num_devices_  && "# of Current Camera must not be less than device number");
+        assert( n_curr_camera < num_devices_  && "# of Current Camera must not be less than device number");
 
         //  uint8_t *data =  (uint8_t*)av_malloc(width_ * height_) ;
         //  memcpy(data, bayerData,  width_ * height_);
@@ -356,6 +416,7 @@ public:
             av_packet_rescale_ts(vecPkts_[nCurrWriteThread][n_curr_camera], codec_contexts_[n_curr_camera]->time_base, video_streams_[n_curr_camera]->time_base);
             vecPkts_[nCurrWriteThread][n_curr_camera]->dts = vecPkts_[nCurrWriteThread][n_curr_camera]->pts;
             vecPkts_[nCurrWriteThread][n_curr_camera]->stream_index = video_streams_[n_curr_camera]->index;
+            
 
 
             ret_flag = true;
@@ -372,6 +433,25 @@ public:
         av_frame_free(&yuv_frame);
         //  av_free(data);
         return ret_flag;
+    }
+
+    void push2Queue(int nCurrWriteThread){
+       
+       
+        {
+            std::unique_lock<std::mutex> lk(writeMutex_);
+
+            queuevecPkts_.push(vecPkts_[nCurrWriteThread]);
+             
+        }
+        std::fill(vecResults_[nCurrWriteThread].begin(),vecResults_[nCurrWriteThread].end(), false);
+        // if (queuevecPkts_.size() == 1) 
+        counter_++;
+        if (counter_ % 50 == 0 || m_bExit) {
+            counter_flag=true;
+            writeCond_.notify_one();
+        }
+
     }
     // AVPacket* getPacket(int nCurrCamera) {
     //     // if (results_[nCurrCamera])
@@ -391,43 +471,13 @@ public:
         return frameNums_;
     }
 
-    // bool writeSingleFrame2MP4(int nCurrCamera) {
-    //     // printf("pkts_[nCurrCamera]->stream_index: %d, %d \n", pkts_[nCurrCamera]->stream_index, video_streams_[nCurrCamera]->index);
-
-    //     int ret = av_interleaved_write_frame(format_context, pkts_[nCurrCamera]);
-    //     av_packet_unref(pkts_[nCurrCamera]);
-    //     if (ret < 0) 
-    //     {
-    //         fprintf(stderr, "Error writing packet to file\n");
-    //         return false;
-    //     }
-    //     return true;
-
-    // }
-    // bool writeAllFrames2MP4()
-    // {
-    //     for (unsigned int i = 0 ; i < num_devices_ ; i++) 
-    //     {
-    //         int ret = av_interleaved_write_frame(format_context, pkts_[i]);
-    //         av_packet_unref(pkts_[i]);
-    //         if (ret < 0) 
-    //         {
-    //             fprintf(stderr, "Error writing packet to file\n");
-    //             return false;
-    //         }
-
-
-
-    //     }
-        
-    //     return true;
-
-    // }
-
+   
     bool writeAllFrames2MP42(int nCurrWriteThread)
     {
+       
         for (unsigned int i = 0 ; i < num_devices_ ; i++) 
         {
+            std::cout<<"Thread id:"<<nCurrWriteThread<<" pts:"<<" "<<  vecPkts_[nCurrWriteThread][i]->pts<<std::endl;
             int ret = av_interleaved_write_frame(format_context, vecPkts_[nCurrWriteThread][i]);
             av_packet_unref(vecPkts_[nCurrWriteThread][i]);
             if (ret < 0) 
@@ -444,17 +494,129 @@ public:
 
     }
 
-    // bool unRefPackets() {
-    //     for (unsigned int i = 0 ; i < num_devices_ ; i++) 
-    //     {
-    //         av_packet_unref(pkts_[i]);
-    //     }
-    //     return true;
-    // }
-
-
+    bool writeAllFrames2MP43()
+    {
    
+        while (!m_bExit ) 
+        {
+            // std::cout<<"bExit:"<<m_bExit<<std::endl;
+            // if (m_bExit) break;
+            {
+                std::vector<AVPacket*> packets={nullptr};
 
+                std::unique_lock<std::mutex> lk(writeMutex_);
+                writeCond_.wait(lk, [this] { return  counter_flag  ;});
+                counter_flag=false;
+
+            
+                while (!queuevecPkts_.empty()) {
+
+                    std::vector<AVPacket*> packets = queuevecPkts_.top();
+                    queuevecPkts_.pop();
+
+                    for (unsigned int i = 0 ; i < packets.size() ; i++) 
+                    {
+                        int ret = av_interleaved_write_frame(format_context, packets[i]);
+                        av_packet_unref(packets[i]);
+                        if (ret < 0) 
+                        {
+                            fprintf(stderr, "Error writing packet to file\n");
+                        //  return false;
+                        }
+
+                // vecResults_[nCurrWriteThread][i] = false;
+
+                    }
+                    // std::cout<<"Packet Buffer Size:"<<queuevecPkts_.size()<<std::endl;
+
+                
+                }  
+                
+
+               
+
+
+                
+            }
+          
+
+        
+        }
+
+
+
+
+            // std::vector<AVPacket*> packets={nullptr};
+            // {
+                
+                
+
+            //     std::unique_lock<std::mutex> lk(writeMutex_);
+            //     writeCond_.wait(lk, [this] { std::cout<<"cnt:"<<counter_<<std::endl; return  (counter_-1)%20 == 0 ;});
+
+            
+            //     while (!queuevecPkts_.empty()) {
+            //         packets = queuevecPkts_.top();
+            //         queuevecPkts_.pop();
+
+            //         for (unsigned int i = 0 ; i < packets.size() ; i++) 
+            //         {
+            //             int ret = av_interleaved_write_frame(format_context, packets[i]);
+            //             av_packet_unref(packets[i]);
+            //             if (ret < 0) 
+            //             {
+            //                 fprintf(stderr, "Error writing packet to file\n");
+            //             //  return false;
+            //             }
+
+            //     // vecResults_[nCurrWriteThread][i] = false;
+
+            //         }
+            //         std::cout<<"Packet Buffer Size:"<<queuevecPkts_.size()<<std::endl;
+
+                
+            //     }  
+                
+
+               
+
+
+                
+            // }
+          
+
+
+
+        // while (!queuevecPkts_.empty())  
+        // {
+        //     std::vector<AVPacket*> packets = queuevecPkts_.top();
+        //     queuevecPkts_.pop();
+        //     for (unsigned int i = 0 ; i < packets.size() ; i++) 
+        //     {
+        //         int ret = av_interleaved_write_frame(format_context, packets[i]);
+        //         av_packet_unref(packets[i]);
+        //         if (ret < 0) 
+        //         {
+        //             fprintf(stderr, "Error writing packet to file\n");
+        //             return false;
+        //         }
+
+        //         // vecResults_[nCurrWriteThread][i] = false;
+
+        //     }
+
+        //     printf("Packet buffer size:%zd\n",queuevecPkts_.size() );
+        // }
+        return true;
+
+    }
+
+
+
+
+ 
+
+static bool m_bExit;
 
 private:
     const unsigned int width_;
@@ -463,11 +625,16 @@ private:
     AVFormatContext *format_context = nullptr; 
     std::vector<AVCodecContext *> codec_contexts_;
     // std::vector<std::vector<AVCodecContext *>>  vec_codec_contexts_;
-
+    std::mutex writeMutex_;
+    std::condition_variable writeCond_;
     std::vector<AVStream *> video_streams_;
     SwsContext * sws_ctx_ = nullptr;
     // std::vector<AVPacket*> pkts_;
     std::vector<std::vector<AVPacket*>> vecPkts_;
+    // std::function<bool(const std::vector<AVPacket*>, const std::vector<AVPacket*>)> PacketComparator;
+
+    std::priority_queue<std::vector<AVPacket*>, std::vector<std::vector<AVPacket*>>, PacketComparator> queuevecPkts_;
+    // std::priority_queue<std::vector<AVPacket*>, std::vector<std::vector<AVPacket*>>,  std::greater<std::vector<std::vector<AVPacket*>>::value_type >> queuevecPkts_;
     unsigned int num_devices_;
     unsigned int num_write_threads;
     unsigned int frameIndex = 0;
@@ -475,6 +642,7 @@ private:
     std::vector<int>  counters_ ;
     std::vector<int> frameNums_;
     int counter_ = 0;
+    bool counter_flag=false;
     std::vector<unsigned int> frameIndexes_;
     std::vector<bool> results_;
     std::vector<std::vector<bool>> vecResults_;
@@ -482,3 +650,4 @@ private:
 
 
 };
+
