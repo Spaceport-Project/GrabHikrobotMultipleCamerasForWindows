@@ -9,7 +9,7 @@
 #include <map>
 #include <cstdlib>
 #include "HikCamera.h"
-// #include "Bayer2H264Converter.h"
+#include "concurrentqueue.h"
 #include "Bayer2H264Converter2.h"
 
 
@@ -46,7 +46,7 @@ public:
     // using converterVector = std::vector<std::unique_ptr<BayerToH264Converter>>;
     static bool m_bExit;
 
-	HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &,  ImageBuffer<std::vector<AVPacket*>> &, std::chrono::system_clock::time_point, const std::string&);	      
+	HikMultipleCameras(moodycamel::ConcurrentQueue<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &, std::chrono::system_clock::time_point, const std::string&);	      
    
 private:
     MV_CC_DEVICE_INFO_LIST  m_stDevList;
@@ -113,15 +113,16 @@ private:
     std::vector<unsigned int> m_nSaveImagesBufSize;
     frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
-    SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
+    // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
+    moodycamel::ConcurrentQueue<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
     SafeVector<AVPacket *> m_vectorAvPacketBuff;
 
     // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_Prev;
     // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_New;
 
     //ImageBuffer<SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
-    ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
-    ImageBuffer<std::vector<AVPacket* >> &m_h264Buff;
+    // ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
+    moodycamel::ConcurrentQueue<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
     std::unique_ptr<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> m_buffItem;
     std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> buff_item;
 
@@ -151,6 +152,7 @@ private:
     std::map<int, std::string> m_mapModels; 
     unsigned int                barr_cnt =0;
     std::atomic<int>            counter_at{0};
+    std::atomic<int>            done_producers{0};
   
                   
 
