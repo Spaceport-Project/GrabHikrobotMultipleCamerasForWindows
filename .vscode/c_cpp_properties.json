@@ -4,19 +4,22 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/Users/hamit/Downloads/ffmpeg-master-latest-win64-gpl-shared/include"
+                "C:/Program Files (x86)/MVS/Development/Includes/**",
+                "C:/Users/hamit/Softwares/GrabHikrobotMultipleCamerasForWindows/include/**",
+                "C:/ffmpeg-win64-gpl-shared/include/**"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
                 "_UNICODE"
             ],
-            "windowsSdkVersion": "10.0.19041.0",
+            "windowsSdkVersion": "10.0.20348.0",
             "compilerPath": "cl.exe",
+            "cppStandard": "c++20",
             "cStandard": "c17",
-            "cppStandard": "c++17",
             "intelliSenseMode": "windows-msvc-x64",
             "configurationProvider": "ms-vscode.cmake-tools"
+
         }
     ],
     "version": 4

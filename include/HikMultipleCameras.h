@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <map>
 #include <cstdlib>
+#include <semaphore>
 #include "HikCamera.h"
 #include "concurrentqueue.h"
 #include "Bayer2H264Converter2.h"
@@ -153,6 +154,12 @@ private:
     unsigned int                barr_cnt =0;
     std::atomic<int>            counter_at{0};
     std::atomic<int>            done_producers{0};
+    std::atomic<bool>           ready_for_start{true};
+    std::atomic_flag            flag = ATOMIC_FLAG_INIT;
+    std::binary_semaphore       binary_sem_prod{0}; // Initialize with value 0
+    std::binary_semaphore       binary_sem_buf{0};
+
+
   
                   
 

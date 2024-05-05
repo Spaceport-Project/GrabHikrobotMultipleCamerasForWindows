@@ -12,7 +12,7 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} /MD /O1 /Ob1 ")
 
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(PROJECT_SOURCES
@@ -33,9 +33,9 @@ SET(PROJECT_SOURCES ${PROJECT_SOURCES}
     "C:/Program Files (x86)/MVS/Development/Includes/MvCameraControl.h"
 )
 SET(PROJECT_LIBS  MvCameraControl)
-set (Boost_INCLUDE_DIRS "C:/boost_1_83/")
+set (Boost_INCLUDE_DIRS "C:/boost_1_83/include")
 set (ffmpeg_INCLUDE_DIRS  "C:/ffmpeg-win64-gpl-shared/include")
-set (concurrent_queue_include "C:/Users/spaceport/Softwares/concurrentqueue")
+set (concurrent_queue_include "C:/Users/hamit/Softwares/concurrentqueue")
 set(GrabMultiHikCams GrabMultiHikCams_${CMAKE_BUILD_TYPE})
 add_executable(${GrabMultiHikCams}  ${PROJECT_SOURCES})
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -79,4 +79,8 @@ target_link_libraries(ConnectViaIPAddress PRIVATE ${PROJECT_LIBS})
 add_executable(ReadMp4Write2Disk  mainReadMp4Write2Disk.cpp src/HikCamera.cpp)
 target_include_directories(ReadMp4Write2Disk PRIVATE ${PROJECT_INCLUDE_DIRECTORIES} ${ffmpeg_INCLUDE_DIRS} ${CMAKE_SOURCE_DIR}/include )
 target_link_libraries(ReadMp4Write2Disk PRIVATE ${PROJECT_LIBS} avformat avcodec swscale avutil)
+
+# add_executable(atomic_sample atomic_sample.cpp)
+add_executable(concurrent_sample concurrent_sample.cpp)
+target_include_directories(concurrent_sample PRIVATE ${concurrent_queue_include})
 
