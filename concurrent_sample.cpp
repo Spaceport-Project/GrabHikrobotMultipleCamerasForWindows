@@ -1,4 +1,6 @@
 #include "concurrentqueue.h"
+#include "blockingconcurrentqueue.h"
+
 #include <iostream>
 moodycamel::ConcurrentQueue<int> q;
 const int ProducerCount = 8;
@@ -7,10 +9,42 @@ std::thread producers[ProducerCount];
 std::thread consumers[ConsumerCount];
 std::atomic<int> doneProducers{0};
 std::atomic<int> doneConsumers{0};
+moodycamel::BlockingConcurrentQueue<int> blq;
+template <typename T>
+struct atomwrapper
+{
+  std::atomic<T> _a;
+
+  atomwrapper()
+    :_a()
+  {}
+
+  atomwrapper(const std::atomic<T> &a)
+    :_a(a.load())
+  {}
+
+  atomwrapper(const atomwrapper &other)
+    :_a(other._a.load())
+  {}
+
+  atomwrapper &operator=(const atomwrapper &other)
+  {
+    _a.store(other._a.load());
+  }
+};
+
 int main() {
     int produce = 0;
   
+    std::vector<atomwrapper<int>> myVector;
 
+    // Create a new atomic<int> element and assign a value to it
+    std::atomic<int> myAtomic(42);
+    int a = myAtomic;
+
+    // Push the atomic<int> element into the vector
+    myVector.emplace_back(myAtomic);
+    // blq.try_dequeue_bulk
 
     for (int i = 0; i != ConsumerCount; ++i) {
         consumers[i] = std::thread([&]() {
@@ -58,5 +92,16 @@ int main() {
     for (int i = 0; i != ConsumerCount; ++i) {
         consumers[i].join();
     }
+
+
+    moodycamel::ConcurrentQueue<int> q;
+
+    moodycamel::ProducerToken ptok(q);
+    q.enqueue(ptok, 17);
+
+    moodycamel::ConsumerToken ctok(q);
+    int item;
+    q.try_dequeue(ctok, item);
+    assert(item == 17);
     return 0;
 }

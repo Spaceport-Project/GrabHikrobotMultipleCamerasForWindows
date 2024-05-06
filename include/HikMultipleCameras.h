@@ -9,8 +9,10 @@
 #include <map>
 #include <cstdlib>
 #include <semaphore>
+#include <shared_mutex>
 #include "HikCamera.h"
 #include "concurrentqueue.h"
+#include "lightweightsemaphore.h"
 #include "Bayer2H264Converter2.h"
 
 
@@ -104,18 +106,17 @@ private:
     
     Container               m_Container;
     std::vector<Container>  m_Containers;
-    my_barrier              barrier0;
-    my_barrier              barrier1;
-    my_barrier              barrier2;
-    // Barrier                 barr1;
-    //boost::barrier          barrboost;
+
     byteArrayVector         m_pSaveImagesBuf;
     byteArrayVector         m_pDataForSaveImages;
     std::vector<unsigned int> m_nSaveImagesBufSize;
     frameVector             m_stImagesInfo;
     mvccIntVector           m_params;
     // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
-    moodycamel::ConcurrentQueue<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
+    moodycamel::ConcurrentQueue<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pair_images_info_buff;
+    // moodycamel::ProducerToken m_pair_images_info_buff_ptok{m_pair_images_info_buff};
+    // moodycamel::ConsumerToken m_pair_images_info_buff_ctok{m_pair_images_info_buff};
+
     SafeVector<AVPacket *> m_vectorAvPacketBuff;
 
     // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_Prev;
@@ -141,7 +142,7 @@ private:
    // std::vector<std::mutex> m_mProduceMutexes;
     std::vector<std::mutex> m_mProduceMutexes;
     std::vector<std::mutex> m_mCheckMutexes;
-    std::vector<std::mutex> codecMutexes_;
+    std::vector<std::shared_mutex> codecMutexes_;
 
     condVector              m_cDataReadyCon;
     std::condition_variable m_cdataCheckCon;
@@ -156,8 +157,10 @@ private:
     std::atomic<int>            done_producers{0};
     std::atomic<bool>           ready_for_start{true};
     std::atomic_flag            flag = ATOMIC_FLAG_INIT;
-    std::binary_semaphore       binary_sem_prod{0}; // Initialize with value 0
-    std::binary_semaphore       binary_sem_buf{0};
+    // std::binary_semaphore       binary_sem_prod{0};
+    // std::binary_semaphore       binary_sem_buf{0};
+    moodycamel::LightweightSemaphore   light_sem_prod{0};
+    moodycamel::LightweightSemaphore    light_sem_buf{0};
 
 
   
@@ -220,6 +223,7 @@ private:
     void Write2MP4FromBayer( int nCurrCamera);
     void Write2H264FromBayer2( int nCurrCamera);
     void Write2H264FromBayer3(int numWriteThreads);
+    void Write2H264FromBayerAtomic(int nCurrCamera);
 
     void Write2H264FromBayer4(int nCurrWriteThread);
 };

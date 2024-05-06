@@ -110,7 +110,8 @@
         "syncstream": "cpp",
         "unordered_set": "cpp",
         "valarray": "cpp",
-        "stdfloat": "cpp"
+        "stdfloat": "cpp",
+        "resumable": "cpp"
     },
     "cmake.configureSettings": {
         "CMAKE_BUILD_TYPE": "${buildType}"

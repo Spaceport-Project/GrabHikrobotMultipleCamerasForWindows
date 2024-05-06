@@ -18,6 +18,34 @@ extern "C" {
 }
 
 
+template <typename T>
+struct atomwrapper
+{
+   
+
+    atomwrapper()
+        :_a()
+    {}
+
+    atomwrapper(const std::atomic<T> &a)
+        :_a(a.load())
+    {}
+
+    atomwrapper(const atomwrapper &other)
+        :_a(other._a.load(std::memory_order_acquire))
+    {}
+
+    atomwrapper &operator=(const atomwrapper &other)
+    {
+        _a.store(other._a.load(std::memory_order_acquire), std::memory_order_release );
+    }
+    T  get() { return _a.load(std::memory_order_acquire); };
+    void store(T val) {
+       _a.store(val, std::memory_order_release) ;
+    }
+    private:
+        std::atomic<T> _a;
+};
 
 
 class BayerToH264Converter2{
@@ -55,7 +83,6 @@ public:
         num_write_threads(numWriteThreads)
         
     {
-            // pkts_.resize(num_devices_, nullptr);
             vecPkts_.resize(numWriteThreads);
             for (int j = 0; j < vecPkts_.size(); j++){
                 vecPkts_[j].resize(num_devices_, nullptr);
@@ -67,7 +94,6 @@ public:
             for (auto &vec: vecResults_)
                 vec.resize(num_devices_, false);
             results_.resize(num_devices_, false);
-            // vec_sws_ctx_.resize(1);
             counters_.resize(num_write_threads, 0);
             codecMutexes_ = std::vector<std::mutex>(num_devices_);
             frameNums_.resize(num_write_threads, 0);
@@ -82,38 +108,38 @@ public:
             vecResults_[nCurrWriteThread][j] =false;
         }
 
-        // if (pkts_[i]) {
-        //     av_packet_unref(pkts_[i]);
-        //     // av_packet_free(&pkts_[i]);
-        // }
-        // pkts_[i] = nullptr;
-
-        // results_[i] = false;
-
+      
 
     }
     bool close() {
          av_write_trailer(format_context);
        
        
-        // for (unsigned int j = 0 ; j < 1; j++)
-        // {
-            // if (j == 0){
-                if (sws_ctx_) 
-                {
-                    sws_freeContext(sws_ctx_);
-                }
-            // }
-            for (unsigned int i = 0 ; i < num_devices_; i++)
+        
+            if (sws_ctx_) 
             {
-                if (codec_contexts_[i] != nullptr) 
-                {
-                    avcodec_close(codec_contexts_[i]);
-                }
-
-                avcodec_free_context(&codec_contexts_[i]);
+                sws_freeContext(sws_ctx_);
             }
-        // }
+           
+            // for (unsigned int i = 0 ; i < num_devices_; i++)
+            // {
+            //     if (codec_contexts_[i] != nullptr) 
+            //     {
+            //         avcodec_close(codec_contexts_[i]);
+            //     }
+
+            //     avcodec_free_context(&codec_contexts_[i]);
+            // }
+
+            for (auto& contextPtr  : codec_contexts_) {
+                // std::unique_ptr<AVCodecContext> context = contextPtr.load(std::memory_order_relaxed);
+                AVCodecContext *cont = contextPtr.get();
+                avcodec_close(cont);
+                avcodec_free_context(&cont);
+             }
+
+
+      
        
         avformat_free_context(format_context);
         return true;
@@ -128,6 +154,8 @@ public:
     bool initializeContexts(const char* outputFileName) 
     {
 
+        
+        
         int ret = avformat_alloc_output_context2(&format_context, nullptr, nullptr, outputFileName);
         if (ret < 0) 
         {
@@ -135,7 +163,8 @@ public:
             return false;
         }
         format_context->flags |= AVFMT_FLAG_GENPTS;
-        
+        format_context->flags |= AVFMT_FLAG_FLUSH_PACKETS;
+
         const AVCodec *codec = avcodec_find_encoder_by_name("h264_nvenc");
         //const AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_H264);
         if (!codec) 
@@ -159,39 +188,47 @@ public:
         for (unsigned int i = 0 ; i < num_devices_ ; i++)
         {
             
-            video_streams_.push_back(avformat_new_stream(format_context, codec));
-            if (!video_streams_.back()) 
+            // context_flag_.emplace_back(true);
+            AVStream *video_stream = avformat_new_stream(format_context, codec);
+            if (!video_stream) 
             {
                 fprintf(stderr, "Error creating video stream\n");
                 return false;
             }
          
-            
-            
-            codec_contexts_.push_back(avcodec_alloc_context3(codec));
-            if (!codec_contexts_.back()) 
+            AVCodecContext* context = avcodec_alloc_context3(codec);
+
+
+            context->codec_type = AVMEDIA_TYPE_VIDEO;
+            context->pix_fmt = AV_PIX_FMT_YUV420P;
+            context->width = width_;
+            context->height = height_;
+            context->time_base = {1,30} ;
+            context->framerate = {30,1}; 
+            context->gop_size = 10;
+            context->max_b_frames = 1;
+            context->thread_count = num_write_threads;
+            context->thread_type = FF_THREAD_FRAME;
+
+            if (!context) 
             {
                 fprintf(stderr, "Could not allocate codec context\n");
                 return false;
             }
-            codec_contexts_.back()->codec_type = AVMEDIA_TYPE_VIDEO;
-            codec_contexts_.back()->pix_fmt = AV_PIX_FMT_YUV420P;
-            codec_contexts_.back()->width = width_;
-            codec_contexts_.back()->height = height_;
-            codec_contexts_.back()->time_base = {1,30} ;
-            codec_contexts_.back()->framerate = {30,1}; 
-            codec_contexts_.back()->gop_size = 10;
-            codec_contexts_.back()->max_b_frames = 1;
-            codec_contexts_.back()->thread_count = num_write_threads;
-            codec_contexts_.back()->thread_type = FF_THREAD_FRAME;
-    
-
-            if (avcodec_open2(codec_contexts_.back(), codec, nullptr) < 0) 
+            if (avcodec_open2(context, codec, nullptr) < 0) 
             {
                 fprintf(stderr, "Could not open codec\n");
                 return false;
             }
-            avcodec_parameters_from_context(video_streams_.back()->codecpar, codec_contexts_.back());
+            
+            avcodec_parameters_from_context(video_stream->codecpar, context);
+            
+            codec_contexts_.emplace_back(context);
+            video_streams_.emplace_back(video_stream);
+
+           
+
+           
 
 
         }
@@ -215,7 +252,6 @@ public:
         }
 
         // Initialize SwsContext for Bayer to YUV conversion
-    //    for (unsigned int j = 0 ; j < 1 ;j++) {
 
         sws_ctx_ = sws_getContext(
                 width_, height_, AV_PIX_FMT_BAYER_RGGB8,
@@ -228,34 +264,7 @@ public:
             fprintf(stderr, "Failed to initialize SwsContext\n");
             return false;
         }
-        // }
-
-        // PacketComparator = [] (const std::vector<AVPacket*> p1, const std::vector<AVPacket*> p2)  {
-        // // If both packets have valid pts values, compare them
-        //     std::cout<<"Inside pts comparator -1"<<std::endl;
-        //     if (p1[0]->pts != AV_NOPTS_VALUE && p2[0]->pts != AV_NOPTS_VALUE) {
-        //         std::cout<<"Inside pts comparator 0"<<std::endl;
-        //         return p1[0]->pts > p2[0]->pts;
-        //     }
-        //     // If only one packet has a valid pts, prioritize it
-        //     else if (p1[0]->pts != AV_NOPTS_VALUE) {
-        //         std::cout<<"Inside pts comparator 1"<<std::endl;
-
-        //         return false;
-        //     }
-        //     else if (p2[0]->pts != AV_NOPTS_VALUE) {
-        //         std::cout<<"Inside pts comparator 2"<<std::endl;
-
-        //         return true;
-        //     }
-        //     // If both packets have no pts, compare their position in the stream
-        //     else {
-        //         std::cout<<"Inside pts comparator 3"<<std::endl;
-
-        //         return p1[0]->pos > p2[0]->pos;
-        //     }
-        // };
-        // queuevecPkts_ = std::priority_queue<std::vector<AVPacket *>, std::vector<std::vector<AVPacket*>>, PacketComparator>(PacketComparator());
+       
         return true;
 
     }
@@ -267,7 +276,7 @@ public:
         //  uint8_t *data =  (uint8_t*)av_malloc(width_ * height_) ;
         //  memcpy(data, bayerData,  width_ * height_);
 
-        frameNums_[nCurrWriteThread] = frameNum;
+        // frameNums_[nCurrWriteThread] = frameNum;
         bool ret_flag = false; 
         
 
@@ -349,14 +358,17 @@ public:
             results_[n_curr_camera] = ret_flag;
             return ret_flag;
         }
-        {
+        
 
         sws_scale(sws_ctx_, input_frame->data, input_frame->linesize, 0,
                   height_, yuv_frame->data, yuv_frame->linesize);
 
-       
+        // while (!context_flag_[n_curr_camera].get());
 
-        ret = avcodec_send_frame(codec_contexts_[n_curr_camera], yuv_frame);
+        AVCodecContext* context = codec_contexts_[n_curr_camera].get();
+        AVStream *video_stream = video_streams_[n_curr_camera].get();
+
+        ret = avcodec_send_frame(context, yuv_frame);
         if (ret < 0) 
         {
             fprintf(stderr, "Error sending a frame for encoding\n");
@@ -369,7 +381,7 @@ public:
         }
         vecPkts_[nCurrWriteThread][n_curr_camera] = av_packet_alloc();
             
-        ret = avcodec_receive_packet(codec_contexts_[n_curr_camera], vecPkts_[nCurrWriteThread][n_curr_camera]);
+        ret = avcodec_receive_packet(context, vecPkts_[nCurrWriteThread][n_curr_camera]);
         // printf("%d.camera's counter:  %d \n", n_curr_camera, counter_);
         // printf("%d.camera's result: %d\n",n_curr_camera, ret);
         if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
@@ -383,9 +395,18 @@ public:
            
   
             vecPkts_[nCurrWriteThread][n_curr_camera]->pts =  frameNum; // Presentation timestamp
-            av_packet_rescale_ts(vecPkts_[nCurrWriteThread][n_curr_camera], codec_contexts_[n_curr_camera]->time_base, video_streams_[n_curr_camera]->time_base);
+            
+            // av_packet_rescale_ts(vecPkts_[nCurrWriteThread][n_curr_camera], codec_contexts_[n_curr_camera]->time_base, video_streams_[n_curr_camera]->time_base);
+            // vecPkts_[nCurrWriteThread][n_curr_camera]->dts = vecPkts_[nCurrWriteThread][n_curr_camera]->pts;
+            // vecPkts_[nCurrWriteThread][n_curr_camera]->stream_index = video_streams_[n_curr_camera]->index;
+            
+            // AVCodecContext* context = codec_contexts_[n_curr_camera].get().load(std::memory_order_acquire);
+            // AVStream *video_stream = video_streams_[n_curr_camera].get().load(std::memory_order_acquire);
+
+            av_packet_rescale_ts(vecPkts_[nCurrWriteThread][n_curr_camera], context->time_base, video_stream->time_base);
             vecPkts_[nCurrWriteThread][n_curr_camera]->dts = vecPkts_[nCurrWriteThread][n_curr_camera]->pts;
-            vecPkts_[nCurrWriteThread][n_curr_camera]->stream_index = video_streams_[n_curr_camera]->index;
+            vecPkts_[nCurrWriteThread][n_curr_camera]->stream_index = video_stream->index;
+
             
 
 
@@ -396,10 +417,11 @@ public:
 
         }
             
-        } 
+         
 
         av_frame_free(&input_frame);
         av_frame_free(&yuv_frame);
+        // context_flag_[n_curr_camera].store(false);
         //  av_free(data);
         return ret_flag;
     }
@@ -411,6 +433,7 @@ public:
             std::unique_lock<std::mutex> lk(writeMutex_);
 
             queuevecPkts_.push(vecPkts_[nCurrWriteThread]);
+            std::cout<<"packet buffer size:"<<queuevecPkts_.size()<<std::endl;
              
         }
         std::fill(vecResults_[nCurrWriteThread].begin(),vecResults_[nCurrWriteThread].end(), false);
@@ -436,10 +459,12 @@ public:
     bool writeAllFrames2MP42(int nCurrWriteThread)
     {
        
+        // std::cout<<"Thread id:"<<nCurrWriteThread<<" pts:"<<" "<<  vecPkts_[nCurrWriteThread][0]->pts<<std::endl;
         for (unsigned int i = 0 ; i < num_devices_ ; i++) 
         {
-            std::cout<<"Thread id:"<<nCurrWriteThread<<" pts:"<<" "<<  vecPkts_[nCurrWriteThread][i]->pts<<std::endl;
+            // std::cout<<"Thread id:"<<nCurrWriteThread<<" pts:"<<" "<<  vecPkts_[nCurrWriteThread][i]->pts<<std::endl;
             int ret = av_interleaved_write_frame(format_context, vecPkts_[nCurrWriteThread][i]);
+           
             av_packet_unref(vecPkts_[nCurrWriteThread][i]);
             if (ret < 0) 
             {
@@ -523,12 +548,18 @@ private:
     const unsigned int height_;
 
     AVFormatContext *format_context = nullptr; 
-    std::vector<AVCodecContext *> codec_contexts_;
-    
-    // std::vector<std::vector<AVCodecContext *>>  vec_codec_contexts_;
+    // std::vector<atomwrapper<bool>> context_flag_;
+    // std::vector<AVCodecContext *> codec_contexts_;
+    std::vector<atomwrapper<AVCodecContext*>>  codec_contexts_;
+    // std::vector<std::atomic<std::unique_ptr<AVCodecContext>>> codec_contexts_;
+
+
+    // std::vector<AVStream *> video_streams_;
+    std::vector<atomwrapper<AVStream *>>  video_streams_;
+
     std::mutex writeMutex_;
     std::condition_variable writeCond_;
-    std::vector<AVStream *> video_streams_;
+    
     SwsContext * sws_ctx_ = nullptr;
     // std::vector<AVPacket*> pkts_;
     std::vector<std::vector<AVPacket*>> vecPkts_;
