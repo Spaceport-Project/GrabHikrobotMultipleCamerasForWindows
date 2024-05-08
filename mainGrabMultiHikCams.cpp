@@ -25,16 +25,12 @@ int main(int argc, char *argv[]) {
         return -1;
     } 
     std::string cameraSettingsFile(argv[1]);
-    ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]>>  > >  buf;
-    ImageBuffer<std::vector<AVPacket*>> h264Buff;
-    const int buff_size = 1000;
-    buf.setCapacity(buff_size);
-    h264Buff.setCapacity(buff_size);
+    ;
 
     std::chrono::system_clock::time_point tp = std::chrono::system_clock::now();
     tp += std::chrono::milliseconds{10000};
 
-    std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras(buf, h264Buff, tp, cameraSettingsFile));
+    std::unique_ptr<HikMultipleCameras> hikroCams (new HikMultipleCameras( tp, cameraSettingsFile));
 
     signal (SIGINT, ctrlC);
     
@@ -71,14 +67,7 @@ int main(int argc, char *argv[]) {
     {
         return -1;
     } 
-    // if (hikroCams->ReadMp4Write2DiskAsJpgInThreads() != MV_OK)
-    // {
-    //   return -1;
-    // }
-    // hikroCams->ReadMp4Write2DiskAsJpgInThreads();
-    // hikroCams->JoinReadMp4Write2DiskAsJpgInThreads();
-
-    // hikroCams->CloseDevices();
+    
     hikroCams->CloseDevicesInThreads();
     hikroCams->JoinCloseDevicesInThreads();
     

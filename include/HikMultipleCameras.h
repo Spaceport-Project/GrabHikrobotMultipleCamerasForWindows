@@ -7,10 +7,12 @@
 #include <memory>
 #include <cstdint>
 #include <map>
+#include <queue>
 #include <cstdlib>
 #include "HikCamera.h"
 // #include "Bayer2H264Converter.h"
-#include "Bayer2H264Converter2.h"
+#include "Bayer2H264Converter.h"
+#include "SharedQueue.h"
 
 
 struct FrameFeatures {
@@ -46,7 +48,7 @@ public:
     // using converterVector = std::vector<std::unique_ptr<BayerToH264Converter>>;
     static bool m_bExit;
 
-	HikMultipleCameras(ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &,  ImageBuffer<std::vector<AVPacket*>> &, std::chrono::system_clock::time_point, const std::string&);	      
+	HikMultipleCameras(std::chrono::system_clock::time_point, const std::string&);	      
    
 private:
     MV_CC_DEVICE_INFO_LIST  m_stDevList;
@@ -74,7 +76,7 @@ private:
     unsigned int            m_nTriggerTimeInterval;
     unsigned int            m_it = 0;
     int                     m_iRandomNumber;
-    SafeVector<unsigned int> m_cnt;
+    unsigned int            m_cnt = 0;
     //std::vector<atomwrapper<int>> m_cnt;
     //std::vector<std::unique_ptr<std::atomic<int>>> m_cnt;
     std::vector<unsigned int> m_its;
@@ -97,16 +99,11 @@ private:
     threadVector            m_tReadMp4WriteThreads;
     threadVector            m_tStopGrabbingThreads;
     // converterVector         converters;
-    std::unique_ptr<BayerToH264Converter2> converter;
+    std::unique_ptr<BayerToH264Converter> converter;
 
     
-    Container               m_Container;
     std::vector<Container>  m_Containers;
-    my_barrier              barrier0;
-    my_barrier              barrier1;
-    my_barrier              barrier2;
-    // Barrier                 barr1;
-    //boost::barrier          barrboost;
+  
     byteArrayVector         m_pSaveImagesBuf;
     byteArrayVector         m_pDataForSaveImages;
     std::vector<unsigned int> m_nSaveImagesBufSize;
@@ -115,14 +112,12 @@ private:
     SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
     SafeVector<AVPacket *> m_vectorAvPacketBuff;
 
-    // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_Prev;
-    // SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff_New;
-
-    //ImageBuffer<SafeVector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
-    ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
-    ImageBuffer<std::vector<AVPacket* >> &m_h264Buff;
+    
+    // ImageBuffer<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> &m_buf;
+    // ImageBuffer<std::vector<AVPacket* >> &m_h264Buff;
     std::unique_ptr<std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >>> m_buffItem;
     std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> buff_item;
+    std::vector<SharedQueue<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> > > > m_queue_vecs;
 
    // std::vector<std::pair<MV_FRAME_OUT_INFO_EX, std::shared_ptr<uint8_t[]> >> m_pairImagesInfo_Buff;
     //std::vector<std::pair<std::shared_ptr<std::atomic<MV_FRAME_OUT_INFO_EX>>, std::shared_ptr<std::atomic<uint8_t[]>> >> m_pairImagesInfo_Buff;
@@ -191,7 +186,7 @@ public:
     int ThreadGrabWithGetImageBufferFun(int );
     int ThreadGrabWithGetImageBufferFun2(int );
     int ThreadGrabWithGetOneFrameFun(int );
-    int ThreadConsumeFun(int );
+    int ThreadConsumeAnWrite2DiskAsMp4Fun(int );
     int ThreadSoftwareTriggerFun();
     int ThreadTriggerGigActionCommandFun();
     int ThreadTimeStampControlResetFun(int );
